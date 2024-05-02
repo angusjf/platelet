@@ -26,24 +26,24 @@ If the variable is not defined then an error is returned.
 | Array     | error         |
 | Object    | error         |
 
-HTML Attributes starting with a `^` are special. They are inspired by Vue's directives.
+HTML Attributes starting with a `pl-` are special. They are inspired by Vue's directives.
 
-| attribute       | behaviour                                          |
-| --------------- | -------------------------------------------------- |
-| `pl-if`         | render this element if the condition is truthy     |
-| `pl-else-if`    | following a `pl-if`                                |
-| `pl-else`       | following a `pl-if` or `pl-else-if`                |
-| `pl-for`        | render element multiple times, see details below   |
-| `pl-inner-html` | set the innerHTML without sanitization             |
-| `pl-outer-html` | set the outerHTML without sanitization (of a slot) |
-| `pl-class`      | confitionally set css classes                      |
+| attribute       | behaviour                                        |
+| --------------- | ------------------------------------------------ |
+| `pl-if`         | render this element if the condition is truthy   |
+| `pl-else-if`    | following a `pl-if`                              |
+| `pl-else`       | following a `pl-if` or `pl-else-if`              |
+| `pl-for`        | render element multiple times, see details below |
+| `pl-inner-html` | set the innerHTML without sanitization           |
+| `pl-outer-html` | set the outerHTML without sanitization           |
+| `pl-class`      | conditionally set css classes                    |
 
-| attribute | behaviour                                                      |
-| --------- | -------------------------------------------------------------- |
-| `pl-src`  | renders the template at the path and replaces the content      |
-| `pl-data` | only makes sense when used with `^src`, pass json to the child |
-| `pl-slot` | marks the component as a slot - one per document               |
-| `pl-is`   | when passed a string                                           |
+| attribute | behaviour                                                        |
+| --------- | ---------------------------------------------------------------- |
+| `pl-src`  | renders the template at the path and replaces the content        |
+| `pl-data` | only makes sense when used with `pl-src`, pass json to the child |
+| `pl-slot` | marks the component as a slot - one per document                 |
+| `pl-is`   | when passed a string                                             |
 
 `pl-for` allows 4 types of expression:
 
@@ -65,14 +65,15 @@ Template
 ## Expressions
 
 On anything:
-| `==` | equals
-| `!=` | does not equal
+| `==` | equals |
+| `!=` | does not equal |
 
 On numbers:
-| `>` | greater than
-| `<` | less than
-| `>=` | greater than or equal to
-| `<=` | less than or equal to
+
+| `>` | greater than |
+| `<` | less than |
+| `>=` | greater than or equal to |
+| `<=` | less than or equal to |
 
 # Example
 
@@ -159,6 +160,7 @@ Will produce a string output as expected.
 Here's the output if you're interested
 </summary>
 ```html
+TODO
 ```
 <details>
 
