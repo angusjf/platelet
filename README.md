@@ -65,15 +65,20 @@ Template
 ## Expressions
 
 On anything:
-| `==` | equals |
-| `!=` | does not equal |
+
+| operator | meaning        |
+| -------- | -------------- |
+| `==`     | equals         |
+| `!=`     | does not equal |
 
 On numbers:
 
-| `>` | greater than |
-| `<` | less than |
-| `>=` | greater than or equal to |
-| `<=` | less than or equal to |
+| operator | meaning                  |
+| -------- | ------------------------ |
+| `>`      | greater than             |
+| `<`      | less than                |
+| `>=`     | greater than or equal to |
+| `<=`     | less than or equal to    |
 
 # Example
 
