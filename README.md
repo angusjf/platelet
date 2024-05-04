@@ -1,15 +1,20 @@
 # platelet
 
-`platelet` is a tiny templating library, designed for composing small **server-rendered** HTML "components".
+`platelet` is a tiny HTML templating library, designed for composing small **server-rendered** "components".
 
 Notable features:
 
-- 'Vue.js-like' syntax
+- HTML specific
+  - All logic is done with HTML attributes
   - Why? The templates are valid HTML, which means you can bring your own formatters & tooling
-- 'File-based' component referencing
-  - Why? It's easier to follow templates written this way
+- JSON-based
+  - Why? Keeps templates portable
+- Support for importing templates
+  - Why? Everyone loves components
 - Script and stylesheet de-duplicicating
   - Why? Allows for co-location of styles, scripts and templates, even when the templates are rendered more than once
+
+The philosophy of platelet is that rendering logic
 
 # Syntax
 
@@ -64,21 +69,21 @@ Template
 
 ## Expressions
 
-On anything:
+On anything: `==`, `!=`
 
-| operator | meaning        |
-| -------- | -------------- |
-| `==`     | equals         |
-| `!=`     | does not equal |
+On numbers: `>`, `<`, `>=`, `<=`
 
-On numbers:
+On booleans: `&&`, `||`, `!`
 
-| operator | meaning                  |
-| -------- | ------------------------ |
-| `>`      | greater than             |
-| `<`      | less than                |
-| `>=`     | greater than or equal to |
-| `<=`     | less than or equal to    |
+On arrays: `len([...])`
+
+On objects: `size([...])`
+
+## Truthiness
+
+`false`, `[]`, `""`, `{}`, `null` are **falsy**.
+
+All other values are **truthy**.
 
 # Example
 
@@ -156,6 +161,14 @@ Running this script:
 
 ```bash
 cat variables.json | platelet templates/index.html
+```
+
+Or using the api:
+
+```rust
+let args: Value = ...;
+let template: &str = "...";
+Platelet::render(args, template)
 ```
 
 Will produce a string output as expected.
