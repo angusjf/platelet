@@ -25,8 +25,6 @@ pub(crate) enum Expression {
     FunctionCall(Box<(String, Expression)>),
     UnaryOperation(Box<(UnaryOperator, Expression)>),
     Conditional(Box<(Expression, Expression, Expression)>),
-    Length(Box<Expression>),
-    Expression(Box<Expression>),
     Null,
     Boolean(bool),
     Str(String),
