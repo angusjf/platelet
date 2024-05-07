@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 lol_html = "1.2.1"
+serde_json = "1.0.116"
 winnow = "0.6.8"
