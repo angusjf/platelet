@@ -52,13 +52,13 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                 BinaryOperator::Divide => todo!(),
                 BinaryOperator::Modulo => todo!(),
                 BinaryOperator::EqualTo => Ok(Value::Bool(a == b)),
-                BinaryOperator::NotEqualTo => todo!(),
+                BinaryOperator::NotEqualTo => Ok(Value::Bool(a != b)),
                 BinaryOperator::GreaterThan => todo!(),
                 BinaryOperator::GreterThanOrEqualTo => todo!(),
                 BinaryOperator::LessThan => todo!(),
                 BinaryOperator::LessThanOrEqualTo => todo!(),
-                BinaryOperator::Or => todo!(),
-                BinaryOperator::And => todo!(),
+                BinaryOperator::Or => Ok(Value::Bool(as_bool(&a) || as_bool(&b))),
+                BinaryOperator::And => Ok(Value::Bool(as_bool(&a) && as_bool(&b))),
             }
         }
         Expression::FunctionCall(_) => todo!(),
@@ -239,5 +239,21 @@ mod test {
         let mut id = "and.i.think.to.myself";
         let id = expr(&mut id).unwrap();
         assert_eq!(eval(&id, &vars), Ok("what a wonderful world".into()));
+    }
+
+    #[test]
+    fn boolean_and() {
+        let vars = json!({ "a" : true, "b": false, "score": 101.0 });
+        let mut id = "a && !b && score == 101";
+        let id = expr(&mut id).unwrap();
+        assert_eq!(eval(&id, &vars), Ok(true.into()));
+    }
+
+    #[test]
+    fn boolean_or() {
+        let vars = Map::new().into();
+        let mut id = "false || 0 || \"\" || {} || []";
+        let id = expr(&mut id).unwrap();
+        assert_eq!(eval(&id, &vars), Ok(false.into()));
     }
 }
