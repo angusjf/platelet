@@ -1,17 +1,40 @@
-use serde_json::{Number, Value};
+use std::collections::HashMap;
+
+use serde_json::{Map, Number, Value};
+use winnow::stream::ToUsize;
 
 use crate::expression_parser::{BinaryOperator, Expression, UnaryOperator};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum EvalError {
     TypeMismatch,
+    BadArrayIndexError,
+    ArrayOutOfBounds,
+    UndefinedProperty,
+    Undefined(String),
 }
 
 pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
     match exp {
-        Expression::Indexed(_) => todo!(),
-        Expression::BinaryOperation(bin_op) => {
-            let (a, op, b) = bin_op.as_ref();
+        Expression::Indexed(indexed_exp) => {
+            let (subject, index) = indexed_exp.as_ref();
+            let subject = eval(subject, vars)?;
+            let index = eval(index, vars)?;
+            match (subject, index) {
+                (Value::Array(a), Value::Number(n)) => {
+                    let n: usize = n.as_f64().ok_or(EvalError::BadArrayIndexError)? as usize;
+                    let v: &Value = a.get(n).ok_or(EvalError::ArrayOutOfBounds)?;
+                    Ok(v.clone())
+                }
+                (Value::Object(o), Value::String(s)) => {
+                    let v = o.get(&s).ok_or(EvalError::UndefinedProperty)?;
+                    Ok(v.clone())
+                }
+                _ => Err(EvalError::TypeMismatch),
+            }
+        }
+        Expression::BinaryOperation(bin_op_exp) => {
+            let (a, op, b) = bin_op_exp.as_ref();
             let a = eval(a, vars)?;
             let b = eval(b, vars)?;
             match op {
@@ -57,8 +80,39 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
         Expression::Str(s) => Ok(Value::String(s.clone())),
         Expression::Num(n) => Ok(Value::Number(Number::from_f64(*n).unwrap())),
         Expression::Array(a) => Ok(a.iter().map(|e| eval(e, vars)).collect::<Result<_, _>>()?),
-        Expression::Object(_) => todo!(),
-        Expression::MultiIdentifier(_) => todo!(),
+        Expression::Object(o) => {
+            let o: Map<_, _> = o
+                .iter()
+                .map(|(k, v)| {
+                    let v = eval(v, vars)?;
+                    Ok((k.clone(), v))
+                })
+                .collect::<Result<_, EvalError>>()?;
+            Ok(Value::Object(o))
+        }
+        Expression::MultiIdentifier(id) => get_in(vars, id),
+    }
+}
+
+fn get_in(vars: &Value, id: &[String]) -> Result<Value, EvalError> {
+    if id.is_empty() {
+        return Err(EvalError::UndefinedProperty);
+    }
+
+    let v = match vars {
+        Value::Object(o) => {
+            let v = o
+                .get(&id[0])
+                .ok_or_else(|| EvalError::Undefined(id[0].clone()))?;
+            Ok(v.clone())
+        }
+        _ => Err(EvalError::TypeMismatch),
+    }?;
+
+    if id.len() == 1 {
+        Ok(v)
+    } else {
+        get_in(&v, &id[1..])
     }
 }
 
@@ -75,13 +129,9 @@ fn as_bool(v: &Value) -> bool {
 
 #[cfg(test)]
 mod test {
-    use serde_json::Map;
-
-    use crate::expression_parser::{self, expr};
-
-    #[allow(clippy::useless_attribute)]
-    #[allow(dead_code)] // its dead for benches
     use super::*;
+    use crate::expression_parser::expr;
+    use serde_json::{json, Map};
 
     #[test]
     fn null() {
@@ -156,5 +206,38 @@ mod test {
         let vars = Map::new().into();
         let n = expr(&mut n).unwrap();
         assert_eq!(eval(&n, &vars), Ok(vec![1.0, 2.0, 3.0].into()));
+    }
+
+    #[test]
+    fn array_index() {
+        let mut n = "[0,1,2,3,4,5,6,7,8,9][4]";
+        let vars = Map::new().into();
+        let n = expr(&mut n).unwrap();
+        assert_eq!(eval(&n, &vars), Ok(4.0.into()));
+    }
+
+    #[test]
+    fn object_index() {
+        let mut obj = "{ \"hello\" : \"world\" }[\"hello\"]";
+        let vars = Map::new().into();
+        let obj = expr(&mut obj).unwrap();
+        assert_eq!(eval(&obj, &vars), Ok("world".into()));
+    }
+
+    #[test]
+    fn indentifier() {
+        let vars = json!({ "hello" : "world" });
+        let mut id = "hello";
+        let id = expr(&mut id).unwrap();
+        assert_eq!(eval(&id, &vars), Ok("world".into()));
+    }
+
+    #[test]
+    fn multi_indentifier() {
+        let vars =
+            json!({ "and" : { "i": { "think": {"to": {"myself": "what a wonderful world"} } } } });
+        let mut id = "and.i.think.to.myself";
+        let id = expr(&mut id).unwrap();
+        assert_eq!(eval(&id, &vars), Ok("what a wonderful world".into()));
     }
 }
