@@ -44,12 +44,19 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
             let exp = eval(exp, vars)?;
             Ok(Value::Bool(!as_bool(&exp)))
         }
-        Expression::Conditional(_) => todo!(),
+        Expression::Conditional(cond_exp) => {
+            let (cond, tru, fal) = cond_exp.as_ref();
+            let cond = eval(cond, vars)?;
+            match cond {
+                Value::Bool(b) => eval(if b { tru } else { fal }, vars),
+                _ => Err(EvalError::TypeMismatch),
+            }
+        }
         Expression::Null => Ok(Value::Null),
         Expression::Boolean(v) => Ok(Value::Bool(*v)),
         Expression::Str(s) => Ok(Value::String(s.clone())),
         Expression::Num(n) => Ok(Value::Number(Number::from_f64(*n).unwrap())),
-        Expression::Array(_) => todo!(),
+        Expression::Array(a) => Ok(a.iter().map(|e| eval(e, vars)).collect::<Result<_, _>>()?),
         Expression::Object(_) => todo!(),
         Expression::MultiIdentifier(_) => todo!(),
     }
@@ -133,5 +140,21 @@ mod test {
         let vars = Map::new().into();
         let n = expr(&mut n).unwrap();
         assert_eq!(eval(&n, &vars), Ok(Value::Bool(true)));
+    }
+
+    #[test]
+    fn array() {
+        let mut n = "[!false, !true]";
+        let vars = Map::new().into();
+        let n = expr(&mut n).unwrap();
+        assert_eq!(eval(&n, &vars), Ok(vec![true, false].into()));
+    }
+
+    #[test]
+    fn conditional() {
+        let mut n = "1 == 2 ? [3, 2, 1] : [1,2,3]";
+        let vars = Map::new().into();
+        let n = expr(&mut n).unwrap();
+        assert_eq!(eval(&n, &vars), Ok(vec![1.0, 2.0, 3.0].into()));
     }
 }
