@@ -69,7 +69,18 @@ where
                     if let Some(exp) = pl_attrs.get("pl-for") {
                         todo!()
                     }
-                    if let Some(exp) = pl_attrs.get("pl-html") {}
+                    if let Some(exp) = pl_attrs.get("pl-html") {
+                        match expr(&mut exp.as_str()) {
+                            Ok(exp) => match eval(&exp, vars) {
+                                Ok(Value::String(content)) => {
+                                    el.set_inner_content(&content, ContentType::Html)
+                                }
+                                Ok(_) => todo!(),
+                                Err(e) => todo!(),
+                            },
+                            Err(x) => todo!(),
+                        }
+                    }
                     if let Some(exp) = pl_attrs.get("pl-attrs") {}
                     if let Some(exp) = pl_attrs.get("pl-src") {}
                     if let Some(exp) = pl_attrs.get("pl-data") {}
@@ -257,5 +268,19 @@ mod test {
             },
         );
         assert_eq!(result, "<h1>this</h1>");
+    }
+
+    #[test]
+    fn pl_html() {
+        let vars = json!({ "content": "<p>hello world</p>" });
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: b"<article pl-html='content'>something that used to be here</article>".into(),
+            },
+        );
+        assert_eq!(result, "<article><p>hello world</p></article>");
     }
 }
