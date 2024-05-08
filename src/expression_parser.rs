@@ -1,8 +1,10 @@
+use serde_json::Number;
 use std::collections::HashMap;
 use std::str::{self, FromStr};
 use winnow::combinator::{opt, seq};
+use winnow::stream::ParseSlice;
 
-use winnow::ascii::{alpha1, alphanumeric1, multispace0};
+use winnow::ascii::{self, alpha1, alphanumeric1, multispace0};
 use winnow::error::{ContextError, ParseError};
 use winnow::prelude::*;
 use winnow::{
@@ -31,7 +33,7 @@ pub(crate) enum Expression {
     Null,
     Boolean(bool),
     Str(String),
-    Num(f64),
+    Num(Number),
     Array(Vec<Expression>),
     Object(HashMap<String, Expression>),
     Identifier(String),
@@ -204,12 +206,56 @@ fn primary_expression(input: &mut &str) -> PResult<Expression> {
         null.value(Expression::Null),
         boolean.map(Expression::Boolean),
         string.map(Expression::Str),
-        float.map(Expression::Num),
+        number.map(Expression::Num),
         array.map(Expression::Array),
         object.map(Expression::Object),
         identifier.map(Expression::Identifier),
     ))
     .parse_next(input)
+}
+
+//     ascii_float.map(|f| {
+//         Number::from_f64(f)
+//             .expect("number should not be NaN or Infinite as this is not valid JSON")
+//     }),
+//     ascii::dec_uint::<_, u32, _>.map(Number::from),
+//     ascii::dec_int::<_, i32, _>.map(Number::from),
+
+pub fn number(input: &mut &str) -> PResult<Number> {
+    (|input: &mut &str| {
+        let s = recognize_float(input)?;
+        categorize_num(s).ok_or_else(|| {
+            winnow::error::ErrMode::from_error_kind(input, winnow::error::ErrorKind::Verify)
+        })
+    })
+    .parse_next(input)
+}
+
+fn categorize_num(s: &str) -> Option<Number> {
+    if s.contains('.') || s.contains('e') || s.contains('E') {
+        return s.parse().map(|x: f64| Number::from_f64(x).unwrap()).ok();
+    } else if s.starts_with('-') {
+        return s.parse::<i32>().map(|x| Number::from(x)).ok();
+    } else {
+        return s.parse::<u32>().map(|x| Number::from(x)).ok();
+    }
+}
+
+fn recognize_float<'a>(input: &mut &'a str) -> PResult<&'a str> {
+    (
+        opt(winnow::token::one_of(['+', '-'])),
+        alt((
+            (ascii::digit1, opt(('.', opt(ascii::digit1)))).void(),
+            ('.', ascii::digit1).void(),
+        )),
+        opt((
+            winnow::token::one_of(['e', 'E']),
+            opt(winnow::token::one_of(['+', '-'])),
+            cut_err(ascii::digit1),
+        )),
+    )
+        .recognize()
+        .parse_next(input)
 }
 
 fn null<'s>(input: &mut &'s str) -> PResult<&'s str> {
@@ -375,7 +421,7 @@ mod test {
 
         let expected = Expression::Object(
             vec![
-                ("a".to_owned(), Num(42.0)),
+                ("a".to_owned(), Num(42.into())),
                 ("b".to_owned(), Str("x".to_owned())),
             ]
             .into_iter()
@@ -391,7 +437,7 @@ mod test {
 
         let input = r#"[42,"x"]"#;
 
-        let expected = Expression::Array(vec![Num(42.0), Str("x".to_owned())]);
+        let expected = Expression::Array(vec![Num(42.into()), Str("x".to_owned())]);
 
         assert_eq!(expression.parse_peek(input), Ok(("", expected)));
     }
@@ -421,17 +467,17 @@ mod test {
                         ("null".to_owned(), Null),
                         ("true".to_owned(), Boolean(true)),
                         ("false".to_owned(), Boolean(false)),
-                        ("number".to_owned(), Num(123e4)),
+                        ("number".to_owned(), Num(Number::from_f64(123e4).unwrap())),
                         ("string".to_owned(), Str(" abc 123 ".to_owned())),
                         (
                             "array".to_owned(),
-                            Array(vec![Boolean(false), Num(1.0), Str("two".to_owned())])
+                            Array(vec![Boolean(false), Num(1.into()), Str("two".to_owned())])
                         ),
                         (
                             "object".to_owned(),
                             Object(
                                 vec![
-                                    ("a".to_owned(), Num(1.0)),
+                                    ("a".to_owned(), Num(Number::from_f64(1.0).unwrap())),
                                     ("b".to_owned(), Str("c".to_owned())),
                                 ]
                                 .into_iter()
@@ -459,8 +505,8 @@ mod test {
             Ok((
                 "",
                 Expression::Indexed(Box::new((
-                    Object(vec![("z".to_owned(), Num(1.0))].into_iter().collect()),
-                    Num(0.0)
+                    Object(vec![("z".to_owned(), Num(1.into()))].into_iter().collect()),
+                    Num(0.into())
                 )))
             ))
         )
@@ -477,8 +523,8 @@ mod test {
             Ok((
                 "",
                 Expression::Indexed(Box::new((
-                    Object(vec![("z".to_owned(), Num(1.0))].into_iter().collect()),
-                    Num(0.0)
+                    Object(vec![("z".to_owned(), Num(1.into()))].into_iter().collect()),
+                    Num(0.into())
                 )))
             ))
         )
@@ -528,7 +574,7 @@ mod test {
                         Expression::Str("name".to_owned())
                     ))),
                     BinaryOperator::Or,
-                    Num(1.0)
+                    Num(Number::from_f64(1.0).unwrap())
                 )))
             ))
         )
@@ -544,9 +590,9 @@ mod test {
             Ok((
                 "",
                 BinaryOperation(Box::new((
-                    Array(vec![Num(1.0)]),
+                    Array(vec![Num(1.into())]),
                     BinaryOperator::And,
-                    Indexed(Box::new((Object(HashMap::new()), Num(3.0))))
+                    Indexed(Box::new((Object(HashMap::new()), Num(3.into()))))
                 )))
             ))
         )
@@ -564,7 +610,7 @@ mod test {
                 BinaryOperation(Box::new((
                     Identifier("name".to_owned()),
                     BinaryOperator::Add,
-                    Num(1.0)
+                    Num(Number::from_f64(1.0).unwrap())
                 )))
             ))
         )
@@ -622,9 +668,13 @@ mod test {
             Ok((
                 "",
                 Conditional(Box::new((
-                    BinaryOperation(Box::new((Num(1.0), BinaryOperator::GreaterThan, Num(2.0)))),
-                    Num(1.0),
-                    Num(2.0)
+                    BinaryOperation(Box::new((
+                        Num(1.into()),
+                        BinaryOperator::GreaterThan,
+                        Num(2.into())
+                    ))),
+                    Num(1.into()),
+                    Num(2.into())
                 )))
             ))
         )
@@ -641,12 +691,16 @@ mod test {
                 "",
                 BinaryOperation(Box::new((
                     BinaryOperation(Box::new((
-                        BinaryOperation(Box::new((Num(9.0), BinaryOperator::Add, Num(3.0)))),
+                        BinaryOperation(Box::new((
+                            Num(9.into()),
+                            BinaryOperator::Add,
+                            Num(3.into())
+                        ))),
                         BinaryOperator::Divide,
-                        Num(2.0)
+                        Num(2.into())
                     ))),
                     BinaryOperator::EqualTo,
-                    Num(6.0)
+                    Num(6.into())
                 )))
             ))
         )
@@ -677,9 +731,9 @@ mod test {
             Ok((
                 "",
                 Expression::BinaryOperation(Box::new((
-                    Expression::Num(1.0),
+                    Expression::Num(1.into()),
                     BinaryOperator::Modulo,
-                    Expression::Num(3.0)
+                    Expression::Num(3.into())
                 )))
             ))
         )
@@ -695,9 +749,9 @@ mod test {
                 Expression::Object(HashMap::from([(
                     "hello".to_owned(),
                     Expression::Array(vec![Expression::BinaryOperation(Box::new((
-                        Expression::Num(1.0),
+                        Expression::Num(1.into()),
                         BinaryOperator::Multiply,
-                        Expression::Num(2.0)
+                        Expression::Num(2.into())
                     )))])
                 )]))
             ))
