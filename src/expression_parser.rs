@@ -181,7 +181,9 @@ fn unary_expression(input: &mut &str) -> PResult<Expression> {
 
 fn indexed_expression(input: &mut &str) -> PResult<Expression> {
     let exp = dot_access_expression.parse_next(input)?;
-    if let Ok(index) = preceded(ws, delimited('[', expression, ']')).parse_next(input) {
+    if let Ok(index) =
+        preceded(ws, delimited('[', delimited(ws, expression, ws), ']')).parse_next(input)
+    {
         return Ok(Expression::Indexed(Box::new((exp, index))));
     } else {
         return Ok(exp);
