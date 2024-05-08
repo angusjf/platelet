@@ -3,6 +3,7 @@ use std::str::{self, FromStr};
 use winnow::combinator::{opt, seq};
 
 use winnow::ascii::{alpha1, alphanumeric1, multispace0};
+use winnow::error::{ContextError, ParseError};
 use winnow::prelude::*;
 use winnow::{
     ascii::float,
@@ -14,8 +15,10 @@ use winnow::{
     token::{any, none_of, take, take_while},
 };
 
-pub(crate) fn expr(input: &mut &str) -> PResult<Expression> {
-    delimited(ws, expression, ws).parse_next(input)
+pub(crate) fn expr<'a>(
+    input: &'a mut &str,
+) -> Result<Expression, ParseError<&'a str, ContextError>> {
+    delimited(ws, expression, ws).parse(input)
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -377,7 +380,7 @@ mod test {
             .collect(),
         );
 
-        assert_eq!(expr.parse_peek(input), Ok(("", expected)));
+        assert_eq!(expression.parse_peek(input), Ok(("", expected)));
     }
 
     #[test]
@@ -388,15 +391,14 @@ mod test {
 
         let expected = Expression::Array(vec![Num(42.0), Str("x".to_owned())]);
 
-        assert_eq!(expr.parse_peek(input), Ok(("", expected)));
+        assert_eq!(expression.parse_peek(input), Ok(("", expected)));
     }
 
     #[test]
     fn json_whitespace() {
         use Expression::{Array, Boolean, Null, Num, Object, Str};
 
-        let input = r#"
-    {
+        let input = r#"{
       "null" : null,
       "true"  :true ,
       "false":  false  ,
@@ -406,11 +408,10 @@ mod test {
       "object" : { "a" : 1.0 , "b" : "c" } ,
       "empty_array" : [  ] ,
       "empty_object" : {   }
-    }
-    "#;
+    }"#;
 
         assert_eq!(
-            expr.parse_peek(input),
+            expression.parse_peek(input),
             Ok((
                 "",
                 Expression::Object(
@@ -450,6 +451,24 @@ mod test {
         use Expression::{Num, Object};
 
         let input = r#"{ "z": 1 }[0]"#;
+
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::Indexed(Box::new((
+                    Object(vec![("z".to_owned(), Num(1.0))].into_iter().collect()),
+                    Num(0.0)
+                )))
+            ))
+        )
+    }
+
+    #[test]
+    fn indexed_expressions_2() {
+        use Expression::{Num, Object};
+
+        let input = r#"{ "z": 1 } [ 0 ]"#;
 
         assert_eq!(
             expression.parse_peek(input),
