@@ -64,7 +64,7 @@ It can be used in combination with the regular `class` attribute.
 ```html
 <div
   class="static"
-  :class="{ active: isActive, 'text-danger': hasError }"
+  ^class="{ active: isActive, 'text-danger': hasError }"
 ></div>
 ```
 

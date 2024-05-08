@@ -65,20 +65,20 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                 BinaryOperator::GreterThanOrEqualTo => todo!(),
                 BinaryOperator::LessThan => todo!(),
                 BinaryOperator::LessThanOrEqualTo => todo!(),
-                BinaryOperator::Or => Ok(Value::Bool(as_bool(&a) || as_bool(&b))),
-                BinaryOperator::And => Ok(Value::Bool(as_bool(&a) && as_bool(&b))),
+                BinaryOperator::Or => Ok(Value::Bool(truthy(&a) || truthy(&b))),
+                BinaryOperator::And => Ok(Value::Bool(truthy(&a) && truthy(&b))),
             }
         }
         Expression::FunctionCall(_) => todo!(),
         Expression::UnaryOperation(un_op) => {
             let (UnaryOperator::Not, exp) = un_op.as_ref();
             let exp = eval(exp, vars)?;
-            Ok(Value::Bool(!as_bool(&exp)))
+            Ok(Value::Bool(!truthy(&exp)))
         }
         Expression::Conditional(cond_exp) => {
             let (cond, tru, fal) = cond_exp.as_ref();
             let cond = eval(cond, vars)?;
-            eval(if as_bool(&cond) { tru } else { fal }, vars)
+            eval(if truthy(&cond) { tru } else { fal }, vars)
         }
         Expression::Null => Ok(Value::Null),
         Expression::Boolean(v) => Ok(Value::Bool(*v)),
@@ -109,7 +109,7 @@ fn are_equal(a: &Value, b: &Value) -> bool {
     a == b
 }
 
-fn as_bool(v: &Value) -> bool {
+pub(crate) fn truthy(v: &Value) -> bool {
     match v {
         Value::Null => false,
         Value::Bool(v) => *v,

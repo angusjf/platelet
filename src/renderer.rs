@@ -1,11 +1,14 @@
 use lol_html::html_content::ContentType;
 use lol_html::{element, text, HtmlRewriter, Settings};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::expression_eval::{eval, truthy};
+use crate::expression_parser::expr;
 use crate::text_node::render_text_node;
 
 const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
@@ -24,7 +27,7 @@ pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> Vec<u8>;
 }
 
-pub fn render<F>(props: &Value, filename: &PathBuf, filesystem: &F) -> String
+pub fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> String
 where
     F: Filesystem,
 {
@@ -33,54 +36,89 @@ where
         Settings {
             element_content_handlers: vec![
                 element!("*", |el| {
-                    let mut replace_with = None;
-                    for attr in el.attributes() {
-                        let name = attr.name();
-                        if !name.starts_with("pl-") {
-                            continue;
-                        }
-                        match name.as_str() {
-                            "pl-src" => {
-                                replace_with = Some(match replace_with {
-                                    None => Replacement::Template(SrcAndData::JustSrc(attr.value())),
-                                    Some(Replacement::Template(SrcAndData::JustData(data))) => Replacement::Template(SrcAndData::BothSrcAndData(attr.value(), data)),
-                                    _ => panic!("you can't use any other `pl-` tags with `pl-src`, excluding `pl-data`")
-                                });
+                    let pl_attrs: HashMap<_, _> = el
+                        .attributes()
+                        .iter()
+                        .filter_map(|attr| {
+                            let name = attr.name();
+                            if name.starts_with("pl-") {
+                                Some((name, attr.value()))
+                            } else {
+                                None
                             }
-                            "pl-for" => {}
-                            "pl-data" => {
-                                println!("{}", attr.value());
-                                let data = serde_json::from_str(&attr.value()).unwrap();
-                                replace_with = Some(match replace_with {
-                                    None => Replacement::Template(SrcAndData::JustData(data)),
-                                    Some(Replacement::Template(SrcAndData::JustSrc(src))) => Replacement::Template(SrcAndData::BothSrcAndData(src, data)),
-                                    _ => panic!("you can't use any other `pl-` tags with `pl-src`, excluding `pl-data`")
-                                });
-                            }
-                            "pl-outer-html" => {}
-                            _ => {
-                                eprintln!("unexpected `pl-` attribute `{}`", name);
-                            }
+                        })
+                        .collect();
+
+                    if let Some(exp) = pl_attrs.get("pl-if") {
+                        match expr(&mut exp.as_str()) {
+                            Ok(exp) => match eval(&exp, vars) {
+                                Ok(v) => {
+                                    if !truthy(&v) {
+                                        el.remove()
+                                    }
+                                }
+                                Err(e) => todo!(),
+                            },
+                            Err(x) => todo!(),
                         }
                     }
-                    match replace_with {
-                        Some(Replacement::Template(src_data)) => {
-                            let (src, data) = match src_data {
-                                SrcAndData::BothSrcAndData(src, data) => (src, data),
-                                SrcAndData::JustSrc(src) => (src, Value::Null),
-                                _ => panic!("bad or missing pl-src"),
-                            };
-                            let path = filename.parent().unwrap().join(src);
-                            let rendered = render(&data, &path, filesystem);
-                            el.replace(&rendered, ContentType::Html)
-                        }
-                        None => {}
-                    }
+                    if let Some(exp) = pl_attrs.get("pl-else-if") {}
+                    if let Some(exp) = pl_attrs.get("pl-else") {}
+                    if let Some(exp) = pl_attrs.get("pl-for") {}
+                    if let Some(exp) = pl_attrs.get("pl-html") {}
+                    if let Some(exp) = pl_attrs.get("pl-attrs") {}
+                    if let Some(exp) = pl_attrs.get("pl-src") {}
+                    if let Some(exp) = pl_attrs.get("pl-data") {}
+                    if let Some(exp) = pl_attrs.get("pl-slot") {}
+                    if let Some(exp) = pl_attrs.get("pl-is") {}
+
                     Ok(())
+                    // for (name, value) in pl_attrs {
+                    //     el.remove_attribute(&name);
+                    //     match name.as_str() {
+                    //         "pl-src" => {
+                    //             replace_with = Some(match replace_with {
+                    //                 None => Replacement::Template(SrcAndData::JustSrc(value)),
+                    //                 Some(Replacement::Template(SrcAndData::JustData(data))) => Replacement::Template(SrcAndData::BothSrcAndData(value, data)),
+                    //                 _ => panic!("you can't use any other `pl-` tags with `pl-src`, excluding `pl-data`")
+                    //             });
+                    //         }
+                    //         "pl-if" => {
+                    //             el.remove();
+                    //         }
+                    //         "pl-for" => {}
+                    //         "pl-data" => {
+                    //             println!("{}", value);
+                    //             let data = serde_json::from_str(&value).unwrap();
+                    //             replace_with = Some(match replace_with {
+                    //                 None => Replacement::Template(SrcAndData::JustData(data)),
+                    //                 Some(Replacement::Template(SrcAndData::JustSrc(src))) => Replacement::Template(SrcAndData::BothSrcAndData(src, data)),
+                    //                 _ => panic!("you can't use any other `pl-` tags with `pl-src`, excluding `pl-data`")
+                    //             });
+                    //         }
+                    //         "pl-outer-html" => {}
+                    //         _ => {
+                    //             eprintln!("unexpected `pl-` attribute `{}`", name);
+                    //         }
+                    //     }
+                    // }
+                    // match replace_with {
+                    //     Some(Replacement::Template(src_data)) => {
+                    //         let (src, data) = match src_data {
+                    //             SrcAndData::BothSrcAndData(src, data) => (src, data),
+                    //             SrcAndData::JustSrc(src) => (src, Value::Null),
+                    //             _ => panic!("bad or missing pl-src"),
+                    //         };
+                    //         let path = filename.parent().unwrap().join(src);
+                    //         let rendered = render(&data, &path, filesystem);
+                    //         el.replace(&rendered, ContentType::Html)
+                    //     }
+                    //     None => {}
+                    // }
                 }),
                 text!("*", |node| {
                     let txt = node.as_str();
-                    match render_text_node(txt, &props) {
+                    match render_text_node(txt, &vars) {
                         Ok(content) => {
                             let content = content.to_string();
                             node.replace(content.as_ref(), ContentType::Text);
@@ -107,7 +145,7 @@ where
 #[cfg(test)]
 mod test {
 
-    use serde_json::json;
+    use serde_json::{json, Map};
 
     use super::*;
 
@@ -175,5 +213,19 @@ mod test {
             },
         );
         assert_eq!(result, "<h1>portugal 3</h1>");
+    }
+
+    #[test]
+    fn pl_if() {
+        let vars = Map::new().into();
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: b"<p>this</p><p pl-if='false'>not this</p><p>not this</p>".into(),
+            },
+        );
+        assert_eq!(result, "<p>this</p><p>not this</p>");
     }
 }
