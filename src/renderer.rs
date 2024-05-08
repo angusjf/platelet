@@ -49,6 +49,8 @@ where
                         })
                         .collect();
 
+                    pl_attrs.keys().for_each(|name| el.remove_attribute(&name));
+
                     if let Some(exp) = pl_attrs.get("pl-if") {
                         match expr(&mut exp.as_str()) {
                             Ok(exp) => match eval(&exp, vars) {
@@ -64,17 +66,28 @@ where
                     }
                     if let Some(exp) = pl_attrs.get("pl-else-if") {}
                     if let Some(exp) = pl_attrs.get("pl-else") {}
-                    if let Some(exp) = pl_attrs.get("pl-for") {}
+                    if let Some(exp) = pl_attrs.get("pl-for") {
+                        todo!()
+                    }
                     if let Some(exp) = pl_attrs.get("pl-html") {}
                     if let Some(exp) = pl_attrs.get("pl-attrs") {}
                     if let Some(exp) = pl_attrs.get("pl-src") {}
                     if let Some(exp) = pl_attrs.get("pl-data") {}
                     if let Some(exp) = pl_attrs.get("pl-slot") {}
-                    if let Some(exp) = pl_attrs.get("pl-is") {}
+
+                    if let Some(exp) = pl_attrs.get("pl-is") {
+                        match expr(&mut exp.as_str()) {
+                            Ok(exp) => match eval(&exp, vars) {
+                                Ok(Value::String(tag_name)) => el.set_tag_name(&tag_name).unwrap(),
+                                Ok(_) => todo!(),
+                                Err(e) => todo!(),
+                            },
+                            Err(x) => todo!(),
+                        }
+                    }
 
                     Ok(())
                     // for (name, value) in pl_attrs {
-                    //     el.remove_attribute(&name);
                     //     match name.as_str() {
                     //         "pl-src" => {
                     //             replace_with = Some(match replace_with {
@@ -223,9 +236,26 @@ mod test {
             &vars,
             &PathBuf::new(),
             &MockFilesystem {
-                data: b"<p>this</p><p pl-if='false'>not this</p><p>not this</p>".into(),
+                data: b"<p>this</p>\
+                    <p pl-if='false'>not this</p>\
+                    <p>not this</p>"
+                    .into(),
             },
         );
         assert_eq!(result, "<p>this</p><p>not this</p>");
+    }
+
+    #[test]
+    fn pl_is() {
+        let vars = json!({ "header": true });
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: b"<p pl-is='header ? \"h1\" : \"h2\"'>this</p>".into(),
+            },
+        );
+        assert_eq!(result, "<h1>this</h1>");
     }
 }
