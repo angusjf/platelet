@@ -184,7 +184,9 @@ On numbers: `-`, `*`, `/`, `%` (mod)
 
 On numbers: `>`, `<`, `>=`, `<=`
 
-On objects and arrays, indexing operator `a[b]`
+On objects arrays and strings, indexing operator `a[b]`
+
+On objects, dot access: `{"name": "angus"}.name`
 
 On arrays: `len(z)`
 

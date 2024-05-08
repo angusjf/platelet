@@ -6,6 +6,8 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 
+use crate::text_node::render_text_node;
+
 const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
 
 pub enum SrcAndData {
@@ -80,13 +82,14 @@ fn run(props: Value, filename: PathBuf) -> String {
                     }
                     Ok(())
                 }),
-                text!("*", |txt| {
-                    if txt.as_str().starts_with("{") {
-                        let key = txt.as_str().to_string();
-                        let key = key.strip_prefix("{").unwrap().strip_suffix("}").unwrap();
-                        let key: Vec<&str> = key.split(".").collect();
-                        let val = get_in(&key, &props);
-                        txt.replace(val.as_str().unwrap(), ContentType::Text)
+                text!("*", |node| {
+                    let txt = node.as_str();
+                    match render_text_node(txt, &props) {
+                        Ok(content) => {
+                            let content = content.to_string();
+                            node.replace(content.as_ref(), ContentType::Text);
+                        }
+                        Err(e) => panic!("{:?}", e),
                     }
                     Ok(())
                 }),
@@ -114,15 +117,10 @@ fn run(props: Value, filename: PathBuf) -> String {
     String::from_utf8(out).unwrap()
 }
 
-fn get_in<'a>(key: &[&str], val: &'a Value) -> &'a Value {
-    match key {
-        [x, ..] => match val.as_object().unwrap().get(*x) {
-            Some(zzzz) => match key {
-                [_] => zzzz,
-                _ => get_in(&key[1..], zzzz),
-            },
-            None => panic!("{x}, {:?}", val),
-        },
-        _ => panic!("[]"),
-    }
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn text_node() {}
 }

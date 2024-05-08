@@ -338,8 +338,6 @@ const WS: &[char] = &[' ', '\t', '\r', '\n'];
 
 #[cfg(test)]
 mod test {
-    #[allow(clippy::useless_attribute)]
-    #[allow(dead_code)] // its dead for benches
     use super::*;
 
     #[test]

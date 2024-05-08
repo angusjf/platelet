@@ -30,6 +30,11 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     let v = o.get(&s).ok_or(EvalError::UndefinedProperty)?;
                     Ok(v.clone())
                 }
+                (Value::String(s), Value::Number(n)) => {
+                    let n: usize = n.as_f64().ok_or(EvalError::BadArrayIndexError)? as usize;
+                    let v = s.chars().nth(n).ok_or(EvalError::ArrayOutOfBounds)?;
+                    Ok(v.to_string().into())
+                }
                 _ => Err(EvalError::TypeMismatch),
             }
         }
@@ -71,10 +76,7 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
         Expression::Conditional(cond_exp) => {
             let (cond, tru, fal) = cond_exp.as_ref();
             let cond = eval(cond, vars)?;
-            match cond {
-                Value::Bool(b) => eval(if b { tru } else { fal }, vars),
-                _ => Err(EvalError::TypeMismatch),
-            }
+            eval(if as_bool(&cond) { tru } else { fal }, vars)
         }
         Expression::Null => Ok(Value::Null),
         Expression::Boolean(v) => Ok(Value::Bool(*v)),
@@ -229,24 +231,56 @@ mod test {
     #[test]
     fn boolean_and() {
         let vars = json!({ "a" : true, "b": false, "score": 101.0 });
-        let mut id = "a && !b && score == 101";
-        let id = expr(&mut id).unwrap();
-        assert_eq!(eval(&id, &vars), Ok(true.into()));
+        let mut exp = "a && !b && score == 101";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(true.into()));
     }
 
     #[test]
     fn boolean_or() {
         let vars = Map::new().into();
-        let mut id = "false || 0 || \"\" || {} || []";
-        let id = expr(&mut id).unwrap();
-        assert_eq!(eval(&id, &vars), Ok(false.into()));
+        let mut exp = "false || 0 || \"\" || {} || []";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(false.into()));
     }
 
     #[test]
     fn sum_numbers() {
         let vars = Map::new().into();
-        let mut id = "99 + 1 + 100";
-        let id = expr(&mut id).unwrap();
-        assert_eq!(eval(&id, &vars), Ok(200.0.into()));
+        let mut exp = "99 + 1 + 100";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(200.0.into()));
+    }
+
+    #[test]
+    fn dot_access() {
+        let vars = Map::new().into();
+        let mut exp = "{ \"data\": { \"hello\" : \"world\" } }.data.hello";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok("world".into()));
+    }
+
+    #[test]
+    fn string_index() {
+        let vars = Map::new().into();
+        let mut exp = "\"abcdefg\"[5]";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok("f".into()));
+    }
+
+    #[test]
+    fn nested_iff() {
+        let vars = Map::new().into();
+        let mut exp = "1 ? 0 ? 3 : 4 : 5";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(4.0.into()));
+    }
+
+    #[test]
+    fn nested_iff_complex() {
+        let vars = Map::new().into();
+        let mut exp = "0 ? 0 : true ? \"here\" : false";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok("here".into()));
     }
 }
