@@ -61,7 +61,7 @@ pub(crate) enum UnaryOperator {
     Not,
 }
 
-fn expression(input: &mut &str) -> PResult<Expression> {
+pub(crate) fn expression(input: &mut &str) -> PResult<Expression> {
     conditional_expression.parse_next(input)
 }
 
@@ -292,7 +292,7 @@ fn string(input: &mut &str) -> PResult<String> {
 //         .parse_next(input)
 // }
 
-fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
+pub(crate) fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
     take_while(1.., ('a'..='z', 'A'..='Z'))
         .parse_next(input)
         .map(|s| s.to_string())
@@ -381,7 +381,7 @@ fn key_value(input: &mut &str) -> PResult<(String, Expression)> {
     separated_pair(string, cut_err((ws, ':', ws)), expression).parse_next(input)
 }
 
-fn ws<'s>(input: &mut &'s str) -> PResult<&'s str> {
+pub(crate) fn ws<'s>(input: &mut &'s str) -> PResult<&'s str> {
     take_while(0.., WS).parse_next(input)
 }
 

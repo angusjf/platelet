@@ -81,10 +81,16 @@ where
                             Err(x) => todo!(),
                         }
                     }
-                    if let Some(exp) = pl_attrs.get("pl-attrs") {}
-                    if let Some(exp) = pl_attrs.get("pl-src") {}
-                    if let Some(exp) = pl_attrs.get("pl-data") {}
-                    if let Some(exp) = pl_attrs.get("pl-slot") {}
+
+                    if let Some(exp) = pl_attrs.get("pl-src") {
+                        let data = if let Some(exp) = pl_attrs.get("pl-data") {};
+                    } else if let Some(exp) = pl_attrs.get("pl-data") {
+                        panic!("don't do this")
+                    }
+
+                    if let Some(exp) = pl_attrs.get("pl-slot") {
+                        todo!()
+                    }
 
                     if let Some(exp) = pl_attrs.get("pl-is") {
                         match expr(&mut exp.as_str()) {
