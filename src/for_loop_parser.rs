@@ -27,7 +27,7 @@ pub(crate) enum ForLoop {
     // (value, key) in object
     IndexedObjectOrKeyValue((String, String), Expression),
     // (value, name, index) in object
-    IndexedKeyValue(String, String, Expression),
+    IndexedKeyValue((String, String, String), Expression),
 }
 
 pub(crate) fn for_loop<'a>(
@@ -40,16 +40,30 @@ fn for_(input: &mut &str) -> PResult<ForLoop> {
     alt((
         separated_pair(identifier, (ws, "in", ws), expression)
             .map(|(id, exp)| ForLoop::Simple(id, exp)),
-        delimited(
-            ('(', ws),
-            separated_pair(
+        separated_pair(
+            delimited(
+                ('(', ws),
                 separated_pair(identifier, (ws, ',', ws), identifier),
-                (ws, "in", ws),
-                expression,
+                (ws, ')'),
             ),
-            (ws, ')'),
+            (ws, "in", ws),
+            expression,
         )
         .map(|(p, exp)| ForLoop::IndexedObjectOrKeyValue(p, exp)),
+        separated_pair(
+            delimited(
+                ('(', ws),
+                separated_pair(
+                    identifier,
+                    (ws, ',', ws),
+                    separated_pair(identifier, (ws, ',', ws), identifier),
+                ),
+                (ws, ')'),
+            ),
+            (ws, "in", ws),
+            expression,
+        )
+        .map(|((a, (b, c)), exp)| ForLoop::IndexedKeyValue((a, b, c), exp)),
     ))
     .parse_next(input)
 }
@@ -66,6 +80,34 @@ mod test {
                 "",
                 ForLoop::Simple(
                     "item".to_owned(),
+                    Expression::Identifier("items".to_owned())
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn complex() {
+        assert_eq!(
+            for_.parse_peek("(item, i) in items"),
+            Ok((
+                "",
+                ForLoop::IndexedObjectOrKeyValue(
+                    ("item".to_owned(), "i".to_owned()),
+                    Expression::Identifier("items".to_owned())
+                )
+            ))
+        );
+    }
+
+    #[test]
+    fn indexed_key_value() {
+        assert_eq!(
+            for_.parse_peek("(key, value, index) in items"),
+            Ok((
+                "",
+                ForLoop::IndexedKeyValue(
+                    ("key".to_owned(), "value".to_owned(), "index".to_owned()),
                     Expression::Identifier("items".to_owned())
                 )
             ))
