@@ -31,7 +31,7 @@ pub(crate) enum Expression {
     Num(f64),
     Array(Vec<Expression>),
     Object(HashMap<String, Expression>),
-    MultiIdentifier(Vec<String>),
+    Identifier(String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -177,12 +177,20 @@ fn unary_expression(input: &mut &str) -> PResult<Expression> {
 }
 
 fn indexed_expression(input: &mut &str) -> PResult<Expression> {
-    let exp = primary_expression.parse_next(input)?;
+    let exp = dot_access_expression.parse_next(input)?;
     if let Ok(index) = preceded(ws, delimited('[', expression, ']')).parse_next(input) {
         return Ok(Expression::Indexed(Box::new((exp, index))));
     } else {
         return Ok(exp);
     }
+}
+
+fn dot_access_expression(input: &mut &str) -> PResult<Expression> {
+    let mut exp = primary_expression.parse_next(input)?;
+    while let Ok(index) = preceded((ws, '.', ws), identifier).parse_next(input) {
+        exp = Expression::Indexed(Box::new((exp, Expression::Str(index))));
+    }
+    return Ok(exp);
 }
 
 fn primary_expression(input: &mut &str) -> PResult<Expression> {
@@ -194,7 +202,7 @@ fn primary_expression(input: &mut &str) -> PResult<Expression> {
         float.map(Expression::Num),
         array.map(Expression::Array),
         object.map(Expression::Object),
-        multi_identifier.map(Expression::MultiIdentifier),
+        identifier.map(Expression::Identifier),
     ))
     .parse_next(input)
 }
@@ -227,11 +235,11 @@ fn string(input: &mut &str) -> PResult<String> {
     .parse_next(input)
 }
 
-fn multi_identifier(input: &mut &str) -> PResult<Vec<String>> {
-    separated(1.., identifier, ".")
-        // .map(|x: Vec<_>| x.iter().map(|s| s.to_string()).collect::<Vec<_>>())
-        .parse_next(input)
-}
+// fn multi_identifier(input: &mut &str) -> PResult<Vec<String>> {
+//     separated(1.., identifier, ".")
+//         // .map(|x: Vec<_>| x.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+//         .parse_next(input)
+// }
 
 fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
     take_while(1.., ('a'..='z', 'A'..='Z'))
@@ -472,18 +480,20 @@ mod test {
             expression.parse_peek(input),
             Ok((
                 "",
-                Expression::MultiIdentifier(vec![
-                    "props".to_owned(),
-                    "user".to_owned(),
-                    "name".to_owned()
-                ])
+                Expression::Indexed(Box::new((
+                    Expression::Indexed(Box::new((
+                        Expression::Identifier("props".to_owned()),
+                        Expression::Str("user".to_owned())
+                    ))),
+                    Expression::Str("name".to_owned())
+                ))),
             ))
         )
     }
 
     #[test]
     fn expression_or() {
-        use Expression::{BinaryOperation, MultiIdentifier, Num};
+        use Expression::{BinaryOperation, Identifier, Num};
         let input = r#"props.user.name || 1.0"#;
 
         assert_eq!(
@@ -491,11 +501,13 @@ mod test {
             Ok((
                 "",
                 BinaryOperation(Box::new((
-                    MultiIdentifier(vec![
-                        "props".to_owned(),
-                        "user".to_owned(),
-                        "name".to_owned()
-                    ]),
+                    Expression::Indexed(Box::new((
+                        Expression::Indexed(Box::new((
+                            Expression::Identifier("props".to_owned()),
+                            Expression::Str("user".to_owned())
+                        ))),
+                        Expression::Str("name".to_owned())
+                    ))),
                     BinaryOperator::Or,
                     Num(1.0)
                 )))
@@ -523,7 +535,7 @@ mod test {
 
     #[test]
     fn expression_add() {
-        use Expression::{BinaryOperation, MultiIdentifier, Num};
+        use Expression::{BinaryOperation, Identifier, Num};
         let input = r#"name + 1.0"#;
 
         assert_eq!(
@@ -531,7 +543,7 @@ mod test {
             Ok((
                 "",
                 BinaryOperation(Box::new((
-                    MultiIdentifier(vec!["name".to_owned()]),
+                    Identifier("name".to_owned()),
                     BinaryOperator::Add,
                     Num(1.0)
                 )))
@@ -541,7 +553,7 @@ mod test {
 
     #[test]
     fn expression_eq() {
-        use Expression::{BinaryOperation, MultiIdentifier, Str};
+        use Expression::{BinaryOperation, Identifier, Str};
         let input = r#"props == """#;
 
         assert_eq!(
@@ -549,7 +561,7 @@ mod test {
             Ok((
                 "",
                 BinaryOperation(Box::new((
-                    MultiIdentifier(vec!["props".to_owned(),]),
+                    Identifier("props".to_owned()),
                     BinaryOperator::EqualTo,
                     Str("".to_owned())
                 )))
@@ -631,25 +643,8 @@ mod test {
                 "",
                 Expression::UnaryOperation(Box::new((
                     UnaryOperator::Not,
-                    Expression::MultiIdentifier(vec!["this".to_owned()])
+                    Expression::Identifier("this".to_owned())
                 )))
-            ))
-        )
-    }
-
-    #[test]
-    fn multi_identifiers_1() {
-        let input = r#"what.a.life"#;
-
-        assert_eq!(
-            expression.parse_peek(input),
-            Ok((
-                "",
-                Expression::MultiIdentifier(vec![
-                    "what".to_owned(),
-                    "a".to_owned(),
-                    "life".to_owned()
-                ])
             ))
         )
     }

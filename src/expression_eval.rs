@@ -40,7 +40,8 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
             match op {
                 BinaryOperator::Add => match (a, b) {
                     (Value::Number(n), Value::Number(m)) => {
-                        todo!()
+                        let sum = n.as_f64().unwrap() + m.as_f64().unwrap();
+                        Ok(Value::Number(Number::from_f64(sum).unwrap()))
                     }
                     (Value::Number(n), Value::String(s)) => todo!(),
                     (Value::String(s), Value::Number(n)) => todo!(),
@@ -90,29 +91,13 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                 .collect::<Result<_, EvalError>>()?;
             Ok(Value::Object(o))
         }
-        Expression::MultiIdentifier(id) => get_in(vars, id),
-    }
-}
-
-fn get_in(vars: &Value, id: &[String]) -> Result<Value, EvalError> {
-    if id.is_empty() {
-        return Err(EvalError::UndefinedProperty);
-    }
-
-    let v = match vars {
-        Value::Object(o) => {
-            let v = o
-                .get(&id[0])
-                .ok_or_else(|| EvalError::Undefined(id[0].clone()))?;
-            Ok(v.clone())
-        }
-        _ => Err(EvalError::TypeMismatch),
-    }?;
-
-    if id.len() == 1 {
-        Ok(v)
-    } else {
-        get_in(&v, &id[1..])
+        Expression::Identifier(id) => match vars {
+            Value::Object(o) => {
+                let v = o.get(id).ok_or_else(|| EvalError::Undefined(id.clone()))?;
+                Ok(v.clone())
+            }
+            _ => Err(EvalError::TypeMismatch),
+        },
     }
 }
 
@@ -255,5 +240,13 @@ mod test {
         let mut id = "false || 0 || \"\" || {} || []";
         let id = expr(&mut id).unwrap();
         assert_eq!(eval(&id, &vars), Ok(false.into()));
+    }
+
+    #[test]
+    fn sum_numbers() {
+        let vars = Map::new().into();
+        let mut id = "99 + 1 + 100";
+        let id = expr(&mut id).unwrap();
+        assert_eq!(eval(&id, &vars), Ok(200.0.into()));
     }
 }
