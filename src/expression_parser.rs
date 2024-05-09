@@ -555,7 +555,7 @@ mod test {
 
     #[test]
     fn expression_or() {
-        use Expression::{BinaryOperation, Identifier, Num};
+        use Expression::{BinaryOperation, Num};
         let input = r#"props.user.name || 1.0"#;
 
         assert_eq!(
@@ -657,7 +657,7 @@ mod test {
 
     #[test]
     fn expression_iif() {
-        use Expression::{BinaryOperation, Conditional, Indexed, Num, Object, Str};
+        use Expression::{BinaryOperation, Conditional, Num};
         let input = r#"1 > 2 ? 1 : 2"#;
 
         assert_eq!(
@@ -679,7 +679,7 @@ mod test {
 
     #[test]
     fn expression_bidmas() {
-        use Expression::{BinaryOperation, Conditional, Indexed, Num, Object, Str};
+        use Expression::{BinaryOperation, Num};
         let input = r#"(9 + 3) / 2 == 6"#;
 
         assert_eq!(
