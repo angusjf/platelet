@@ -1,10 +1,8 @@
-use lol_html::html_content::ContentType;
-use lol_html::{element, text, HtmlRewriter, Settings};
 use platelet::renderer::{render, Filesystem};
 use serde_json::Value;
 use std::env;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
@@ -14,10 +12,10 @@ enum RealFilesystem {
 }
 
 impl Filesystem for RealFilesystem {
-    fn get_data_at_path(&self, filename: &PathBuf) -> Vec<u8> {
+    fn get_data_at_path(&self, filename: &PathBuf) -> String {
         let mut file = File::open(filename.clone()).expect("bad file");
-        let mut buf = vec![];
-        file.read_to_end(&mut buf).unwrap();
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
         buf
     }
 }

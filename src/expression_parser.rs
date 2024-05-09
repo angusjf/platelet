@@ -1,19 +1,16 @@
 use serde_json::Number;
 use std::collections::HashMap;
-use std::str::{self, FromStr};
-use winnow::combinator::{opt, seq};
-use winnow::stream::ParseSlice;
+use winnow::combinator::opt;
 
-use winnow::ascii::{self, alpha1, alphanumeric1, multispace0};
+use winnow::ascii;
 use winnow::error::{ContextError, ParseError};
 use winnow::prelude::*;
 use winnow::{
-    ascii::float,
     combinator::alt,
     combinator::cut_err,
     combinator::{delimited, preceded, separated_pair, terminated},
     combinator::{repeat, separated},
-    error::{AddContext, ParserError},
+    error::ParserError,
     token::{any, none_of, take, take_while},
 };
 
