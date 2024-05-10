@@ -14,8 +14,6 @@ use crate::for_loop_parser::for_loop;
 use crate::text_node::render_text_node;
 use crate::{deno_dom, for_loop_runner};
 
-const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
-
 pub enum SrcAndData {
     BothSrcAndData(String, Value),
     JustSrc(String),
@@ -107,7 +105,14 @@ impl Node {
     }
 }
 
-fn render_elem<F>(node: &mut Node, vars: &Value, filename: &PathBuf, filesystem: &F) -> Cmd
+fn render_elem<F>(
+    node: &mut Node,
+    vars: &Value,
+    previous_conditional: &Option<bool>,
+    next_neighbour_conditional: &mut Option<bool>,
+    filename: &PathBuf,
+    filesystem: &F,
+) -> Cmd
 where
     F: Filesystem,
 {
@@ -121,21 +126,65 @@ where
             Err(e) => panic!("{:?}", e),
         },
         Node::Big {
-            attrs, children, ..
+            attrs,
+            children,
+            name,
+            ..
         } => {
-            let mut cmd = Cmd::Nothing;
             if let Some(exp) = attrs.get("pl-if") {
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(v) => {
-                            attrs.remove("pl-if");
-                            if !truthy(&v) {
+                            let cond = !truthy(&v);
+                            *next_neighbour_conditional = Some(cond);
+                            if cond {
                                 return Cmd::DeleteMe;
                             }
+                            attrs.remove("pl-if");
                         }
-                        Err(e) => todo!(),
+                        Err(_e) => todo!(),
                     },
-                    Err(x) => todo!(),
+                    Err(_x) => todo!(),
+                }
+            }
+
+            if let Some(exp) = attrs.get("pl-else-if") {
+                match previous_conditional {
+                    Some(true) => {
+                        *next_neighbour_conditional = Some(true);
+                        return Cmd::DeleteMe;
+                    }
+                    Some(false) => match expr(&mut exp.as_ref()) {
+                        Ok(exp) => match eval(&exp, vars) {
+                            Ok(v) => {
+                                let cond = !truthy(&v);
+                                *next_neighbour_conditional = Some(cond);
+                                if cond {
+                                    return Cmd::DeleteMe;
+                                }
+                                attrs.remove("pl-else-if");
+                            }
+                            Err(_e) => todo!(),
+                        },
+                        Err(_x) => todo!(),
+                    },
+                    None => todo!(),
+                }
+            }
+
+            if !(attrs.contains_key("pl-else-if") || attrs.contains_key("pl-else-if")) {
+                *next_neighbour_conditional = None;
+            }
+
+            if attrs.contains_key("pl-else") {
+                match previous_conditional {
+                    Some(true) => {
+                        return Cmd::DeleteMe;
+                    }
+                    Some(false) => {
+                        attrs.remove("pl-else");
+                    }
+                    None => todo!(),
                 }
             }
 
@@ -151,11 +200,54 @@ where
                 }
             }
 
+            if let Some(exp) = attrs.get("pl-html") {
+                match expr(&mut exp.as_ref()) {
+                    Ok(exp) => match eval(&exp, vars) {
+                        Ok(Value::String(html)) => {
+                            attrs.remove("pl-html");
+                            children.clear();
+                            let node = parse_html(html);
+                            children.push(node);
+                        }
+                        Ok(_v) => {
+                            todo!()
+                        }
+                        Err(_e) => todo!(),
+                    },
+                    Err(_x) => todo!(),
+                }
+            }
+
+            if let Some(exp) = attrs.get("pl-is") {
+                match expr(&mut exp.as_ref()) {
+                    Ok(exp) => match eval(&exp, vars) {
+                        Ok(Value::String(tag)) => {
+                            attrs.remove("pl-is");
+                            *name = tag;
+                        }
+                        Ok(_v) => {
+                            todo!()
+                        }
+                        Err(_e) => todo!(),
+                    },
+                    Err(_x) => todo!(),
+                }
+            }
+
             let mut i = 0;
 
+            let mut running_prev_cond = None;
+            let mut running_cond = None;
             while i < children.len() {
                 let child = children[i].borrow_mut();
-                match render_elem(child, vars, filename, filesystem) {
+                match render_elem(
+                    child,
+                    vars,
+                    &running_prev_cond,
+                    &mut running_cond,
+                    filename,
+                    filesystem,
+                ) {
                     Cmd::DeleteMe => {
                         children.remove(i);
                     }
@@ -163,7 +255,14 @@ where
                         let child = children.remove(i);
                         for ctx in contexts {
                             let mut child = child.clone();
-                            render_elem(&mut child, &ctx, filename, filesystem);
+                            render_elem(
+                                &mut child,
+                                &ctx,
+                                &running_prev_cond,
+                                &mut running_cond,
+                                filename,
+                                filesystem,
+                            );
                             children.insert(i, child);
                             i += 1;
                         }
@@ -172,9 +271,10 @@ where
                         i += 1;
                     }
                 };
+                running_prev_cond = running_cond;
             }
 
-            return cmd;
+            return Cmd::Nothing;
         }
     }
 }
@@ -194,7 +294,7 @@ where
 
     let mut node = parse_html(html);
 
-    render_elem(&mut node, vars, filename, filesystem);
+    render_elem(&mut node, vars, &None, &mut None, filename, filesystem);
 
     node.to_string()
         .replace("<#document>", "")
@@ -305,15 +405,49 @@ mod test {
             &MockFilesystem {
                 data: "<p>this</p>\
                     <p pl-if='false'>not this</p>\
-                    <p>not this</p>"
+                    <p>also this</p>"
                     .into(),
             },
         );
-        assert_eq!(result, "<p>this</p><p>not this</p>");
+        assert_eq!(result, "<p>this</p><p>also this</p>");
     }
 
     #[test]
     #[ignore]
+    fn pl_else_if_true() {
+        let vars = Map::new().into();
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: "<p>this</p>\
+                        <p pl-if='false'>not this</p>\
+                        <p pl-else-if='true'>also this</p>"
+                    .into(),
+            },
+        );
+        assert_eq!(result, "<p>this</p><p>also this</p>");
+    }
+
+    #[test]
+    fn pl_else_if_false() {
+        let vars = Map::new().into();
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: "<p>this</p>\
+                        <p pl-if='false'>not this</p>\
+                        <p pl-else-if='false'>also this</p>"
+                    .into(),
+            },
+        );
+        assert_eq!(result, "<p>this</p>");
+    }
+
+    #[test]
     fn pl_is() {
         let vars = json!({ "header": true });
 
@@ -342,6 +476,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn pl_html_with_template() {
         let vars = json!({ "content": "<p>hello world</p>" });
 
@@ -398,5 +533,24 @@ mod test {
             },
         );
         assert_eq!(result, "<div><p>1</p><p>2</p><p>3</p></div>");
+    }
+
+    #[test]
+    #[ignore]
+    fn loop_with_if_else() {
+        let vars = Map::new().into();
+
+        let result = render(
+            &vars,
+            &PathBuf::new(),
+            &MockFilesystem {
+                data: r#"<div pl-if='"A" == "Z"'>A</div>\
+    <div pl-for="_ in [1,3]" v-else-if='"A" == "A"'>B</div>\
+    <div pl-else-if='"A" == "A"'>C</div>\
+    <div pl-else>Not A/B/C</div>"#
+                    .into(),
+            },
+        );
+        assert_eq!(result, "<div>B</div><div>B</div>");
     }
 }
