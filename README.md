@@ -87,7 +87,6 @@ HTML Attributes starting with a `pl-` are special. They are inspired by Vue's di
 | `pl-else`    |
 | `pl-for`     |
 | `pl-html`    |
-| `pl-attrs`   |
 | `pl-src`     |
 | `pl-data`    |
 | `pl-slot`    |
@@ -123,16 +122,6 @@ set the innerHTML without sanitization
 
 to set the outerHTML without sanitization, apply this to a `<template>`
 
-### `pl-attrs`
-
-conditionally set html attributes, using a (flat) json object
-
-for example:
-
-```html
-<h1 pl-attrs='{ "x": "y" }'></h1>
-```
-
 ### `pl-src`
 
 given a path as a string, renders the template at the path and replaces the element
@@ -156,19 +145,6 @@ no value to be supplied
 ### `pl-is`
 
 replace the rendered element's tag with this element, given an expression that returns a string
-
-Compatibility matrix
-
-| attribute         | `pl-if` , `pl-else-if` , `pl-else` | `pl-for` | `pl-inner-html` , `pl-outer-html` | `pl-attrs`   | `pl-src`   | `pl-data`   | `pl-slot`   | `pl-is`   |
-| ----------------- | ---------------------------------- | -------- | --------------------------------- | ------------ | ---------- | ----------- | ----------- | --------- |
-| `pl-if ...`,      |                                    | 𐄂        | 𐄂                                 | ----------   | --------   | ---------   | ---------   | -------   |
-| `pl-for`          | 𐄂                                  |          | 𐄂                                 | ----------   | --------   | ---------   | ---------   | -------   |
-| `pl-outer-html..` | 𐄂                                  | 𐄂        |                                   | ----------   | --------   | ---------   | ---------   | -------   |
-| `pl-attrs`        | 𐄂                                  | 𐄂        | (outer yes, inner no)             | ❌---------- | --------   | ---------   | ---------   | -------   |
-| `pl-src`          | 𐄂                                  | 𐄂        |                                   | ----------   | ❌-------- | ---------   | ---------   | -------   |
-| `pl-data`         | 𐄂                                  | 𐄂        |                                   | ----------   | --------   | ❌--------- | ---------   | -------   |
-| `pl-slot`         |                                    |          |                                   | ----------   | --------   | ---------   | ❌--------- | -------   |
-| `pl-is`           | 𐄂                                  | 𐄂        | 𐄂                                 | ----------   | --------   | ---------   | ---------   | ❌------- |
 
 </details>
 

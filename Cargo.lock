@@ -393,6 +393,7 @@ dependencies = [
  "kuchikiki",
  "markup5ever",
  "regex",
+ "serde",
  "serde_json",
  "winnow",
 ]

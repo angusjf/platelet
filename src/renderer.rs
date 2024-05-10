@@ -1,15 +1,18 @@
-use kuchikiki::{traits::*, NodeData, NodeRef};
 use markup5ever::{namespace_url, ns, LocalName, QualName};
+use serde::{Deserialize, Deserializer, Serialize};
+
+use core::fmt;
 use serde_json::Value;
 use std::borrow::{Borrow, BorrowMut};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::expression_eval::{eval, truthy};
 use crate::expression_parser::expr;
 use crate::for_loop_parser::for_loop;
-use crate::for_loop_runner;
 use crate::text_node::render_text_node;
+use crate::{deno_dom, for_loop_runner};
 
 const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
 
@@ -27,149 +30,160 @@ pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> String;
 }
 
-pub fn clone_node(node: &NodeRef) -> NodeRef {
-    node.clone()
+#[derive(Debug, Clone)]
+enum Node {
+    Small {
+        id: u64,
+        content: String,
+    },
+    Big {
+        id: u64,
+        name: String,
+        attrs: HashMap<String, String>,
+        children: Vec<Node>,
+    },
 }
 
-pub fn modify_node<F>(node: &mut NodeRef, vars: &Value, filename: &PathBuf, filesystem: &F)
+// type node = [NodeType, nodeName, attributes, node[]]
+//             | [NodeType, characterData]
+fn node_from_array(val: &Value) -> Node {
+    let val = val.as_array().unwrap();
+
+    if val.len() == 2 {
+        Node::Small {
+            id: val[0].as_u64().unwrap(),
+            content: val[1].as_str().unwrap().to_owned(),
+        }
+    } else {
+        Node::Big {
+            id: val[0].as_u64().unwrap(),
+            name: val[1].as_str().unwrap().to_owned(),
+            attrs: val[2]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|attr| {
+                    let attr = attr.as_array().unwrap();
+                    (
+                        attr[0].as_str().unwrap().to_owned(),
+                        attr[1].as_str().unwrap().to_owned(),
+                    )
+                })
+                .collect(),
+            children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
+        }
+    }
+}
+
+enum Cmd {
+    Nothing,
+    DeleteMe,
+    Loop(Vec<Value>),
+}
+
+impl Node {
+    fn to_string(&self) -> String {
+        match self {
+            Node::Small { content, id: _id } => content.clone(),
+            Node::Big {
+                id: _,
+                name,
+                attrs,
+                children,
+            } => {
+                let attrs_str = attrs
+                    .iter()
+                    .map(|(key, value)| format!(" {}=\"{}\"", key, value))
+                    .collect::<String>();
+
+                let children_str = children
+                    .iter()
+                    .map(|child| child.to_string())
+                    .collect::<String>();
+
+                format!("<{}{}>{}</{}>", name, attrs_str, children_str, name)
+            }
+        }
+    }
+}
+
+fn render_elem<F>(node: &mut Node, vars: &Value, filename: &PathBuf, filesystem: &F) -> Cmd
 where
     F: Filesystem,
 {
-    let mut modify_children = true;
-
-    match node.data() {
-        NodeData::Element(e) => {
-            let attrs = e.attributes.borrow().clone();
-            {
-                let mut attrs_ = e.attributes.borrow_mut();
-                for attr in [
-                    "pl-if", "pl-else", "pl-else", "pl-for", "pl-html", "pl-src", "pl-data",
-                    "pl-slot", "pl-is",
-                ] {
-                    if attrs_.contains(attr) {
-                        attrs_.remove(attr);
-                    }
-                }
+    match node {
+        Node::Small { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
+            Ok(content) => {
+                let content = content.to_string();
+                *t = content;
+                Cmd::Nothing
             }
-
-            if let Some(mut exp) = attrs.get("pl-if") {
-                match expr(&mut exp) {
+            Err(e) => panic!("{:?}", e),
+        },
+        Node::Big {
+            attrs, children, ..
+        } => {
+            let mut cmd = Cmd::Nothing;
+            if let Some(exp) = attrs.get("pl-if") {
+                match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(v) => {
+                            attrs.remove("pl-if");
                             if !truthy(&v) {
-                                node.detach();
-                                modify_children = false;
+                                return Cmd::DeleteMe;
                             }
                         }
-                        Err(_e) => todo!(),
+                        Err(e) => todo!(),
                     },
-                    Err(_x) => todo!(),
+                    Err(x) => todo!(),
                 }
             }
 
-            if let Some(mut exp) = attrs.get("pl-html") {
-                modify_children = false;
-                match expr(&mut exp) {
-                    Ok(exp) => match eval(&exp, vars) {
-                        Ok(Value::String(html)) => {
-                            if e.name.local == "template".to_string() {
-                                let new_child = parse_html(&html);
-                                node.insert_after(new_child);
-                                node.detach();
-                            } else {
-                                for child in node.children() {
-                                    child.detach()
-                                }
-                                let new_child = parse_html(&html);
-                                node.append(new_child);
-                            }
-                        }
-                        Ok(_) => todo!(),
-                        Err(_e) => todo!(),
-                    },
-                    Err(_x) => todo!(),
-                }
-            }
-
-            if let Some(mut fl) = attrs.get("pl-for") {
-                modify_children = false;
-                match for_loop(&mut fl) {
+            if let Some(fl) = attrs.get("pl-for") {
+                let fl = fl.clone();
+                attrs.remove("pl-for");
+                match for_loop(&mut fl.as_ref()) {
                     Ok(fl) => match for_loop_runner::for_loop_runner(&fl, vars) {
-                        Ok(contexts) => {
-                            if e.name.local == "template".to_string() {
-
-                                // println!("1");
-
-                                // println!("2");
-                                // for ctx in contexts.iter().take(1) {
-                                //     println!("3");
-                                //     let mut x = template_contents.clone();
-                                //     modify_node(&mut x, &ctx, filename, filesystem);
-                                //     node.insert_before(x)
-                                // }
-                                // node.detach();
-                            } else {
-                                modify_children = false;
-                                println!("start");
-                                let parent = node.parent().unwrap();
-                                for ctx in contexts {
-                                    println!("  {ctx}");
-                                    let mut node_clone_ref = node.clone();
-                                    modify_node(&mut node_clone_ref, &ctx, filename, filesystem);
-                                    parent.append(node_clone_ref)
-                                }
-                                println!("end");
-                                // node.detach();
-                            }
-                        }
+                        Ok(contexts) => return Cmd::Loop(contexts),
                         Err(_e) => todo!(),
                     },
                     Err(_x) => todo!(),
                 }
             }
-        }
 
-        NodeData::Text(t) => {
-            let mut t = t.borrow_mut();
-            match render_text_node(t.as_ref(), &vars) {
-                Ok(content) => {
-                    let content = content.to_string();
-                    *t = content;
-                }
-                Err(e) => panic!("{:?}", e),
+            let mut i = 0;
+
+            while i < children.len() {
+                let child = children[i].borrow_mut();
+                match render_elem(child, vars, filename, filesystem) {
+                    Cmd::DeleteMe => {
+                        children.remove(i);
+                    }
+                    Cmd::Loop(contexts) => {
+                        let child = children.remove(i);
+                        for ctx in contexts {
+                            let mut child = child.clone();
+                            render_elem(&mut child, &ctx, filename, filesystem);
+                            children.insert(i, child);
+                            i += 1;
+                        }
+                    }
+                    Cmd::Nothing => {
+                        i += 1;
+                    }
+                };
             }
-        }
-        NodeData::Comment(_) => {}
-        NodeData::ProcessingInstruction(_) => {}
-        NodeData::Doctype(_) => {}
-        NodeData::Document(_) => {}
-        NodeData::DocumentFragment => {}
-    }
 
-    if modify_children {
-        for mut child in node.children() {
-            modify_node(&mut child, vars, filename, filesystem);
+            return cmd;
         }
     }
 }
 
-fn parse_html(html: &str) -> NodeRef {
-    kuchikiki::parse_fragment(
-        QualName::new(None, ns!(html), LocalName::from("body")),
-        vec![],
-    )
-    .one(html)
-}
-
-fn stringify_html(node: &NodeRef) -> String {
-    let mut writer = vec![];
-
-    node.serialize(&mut writer).unwrap();
-
-    String::from_utf8(writer)
-        .unwrap()
-        .replace("<html>", "")
-        .replace("</html>", "")
+fn parse_html(html: String) -> Node {
+    let node = deno_dom::parse_frag(html, "body".to_owned());
+    let node = serde_json::from_str(&node).unwrap();
+    let node = node_from_array(&node);
+    node
 }
 
 pub fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> String
@@ -177,11 +191,16 @@ where
     F: Filesystem,
 {
     let html = filesystem.get_data_at_path(filename);
-    let mut node = parse_html(&html);
 
-    modify_node(&mut node, vars, filename, filesystem);
+    let mut node = parse_html(html);
 
-    stringify_html(&node)
+    render_elem(&mut node, vars, filename, filesystem);
+
+    node.to_string()
+        .replace("<#document>", "")
+        .replace("<html>", "")
+        .replace("</html>", "")
+        .replace("</#document>", "")
 }
 
 #[cfg(test)]
