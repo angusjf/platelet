@@ -1,4 +1,4 @@
-use platelet::renderer::{render, Filesystem};
+use platelet::renderer::{render_to_string, Filesystem};
 use serde_json::Value;
 use std::env;
 use std::fs::File;
@@ -30,7 +30,7 @@ fn main() {
 
     println!(
         "{}",
-        render(
+        render_to_string(
             &stdin,
             &filename.to_path_buf(),
             &RealFilesystem::RealFilesystem

@@ -14,16 +14,6 @@ use crate::for_loop_parser::for_loop;
 use crate::text_node::render_text_node;
 use crate::{deno_dom, for_loop_runner};
 
-pub enum SrcAndData {
-    BothSrcAndData(String, Value),
-    JustSrc(String),
-    JustData(Value),
-}
-
-enum Replacement {
-    Template(SrcAndData),
-}
-
 pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> String;
 }
@@ -77,6 +67,7 @@ enum Cmd {
     Nothing,
     DeleteMe,
     Loop(Vec<Value>),
+    ReplaceMeWith(Node),
 }
 
 impl Node {
@@ -218,6 +209,12 @@ where
                 }
             }
 
+            if let Some(src) = attrs.get("pl-src") {
+                let path = filename.parent().unwrap().join(src);
+                let rendered = render(vars, &path, filesystem);
+                return Cmd::ReplaceMeWith(rendered);
+            }
+
             if let Some(exp) = attrs.get("pl-is") {
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
@@ -270,6 +267,10 @@ where
                     Cmd::Nothing => {
                         i += 1;
                     }
+                    Cmd::ReplaceMeWith(node) => {
+                        children[i] = node;
+                        i += 1;
+                    }
                 };
                 running_prev_cond = running_cond;
             }
@@ -286,7 +287,7 @@ fn parse_html(html: String) -> Node {
     node
 }
 
-pub fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> String
+fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Node
 where
     F: Filesystem,
 {
@@ -295,8 +296,15 @@ where
     let mut node = parse_html(html);
 
     render_elem(&mut node, vars, &None, &mut None, filename, filesystem);
+    node
+}
 
-    node.to_string()
+pub fn render_to_string<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> String
+where
+    F: Filesystem,
+{
+    render(vars, filename, filesystem)
+        .to_string()
         .replace("<#document>", "")
         .replace("<html>", "")
         .replace("</html>", "")
@@ -310,13 +318,23 @@ mod test {
 
     use super::*;
 
-    struct MockFilesystem {
+    struct MockSingleFile {
         data: String,
     }
 
-    impl Filesystem for MockFilesystem {
+    impl Filesystem for MockSingleFile {
         fn get_data_at_path(&self, _: &PathBuf) -> String {
             self.data.clone()
+        }
+    }
+
+    struct MockMultiFile {
+        data: HashMap<PathBuf, String>,
+    }
+
+    impl Filesystem for MockMultiFile {
+        fn get_data_at_path(&self, path: &PathBuf) -> String {
+            self.data.get(path).unwrap().clone()
         }
     }
 
@@ -324,10 +342,10 @@ mod test {
     fn templateless_text_node() {
         let vars = json!({ "hello": "world" });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<h1>nothing here</h1>".into(),
             },
         );
@@ -339,10 +357,10 @@ mod test {
     fn templateless_html_doc() {
         let vars = json!({ "hello": "world" });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<!doctype html><html><head><title>a</title></head><body></body></html>"
                     .into(),
             },
@@ -357,10 +375,10 @@ mod test {
     fn templated_text_node() {
         let vars = json!({ "hello": "world" });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<h1>{{hello}}</h1>".into(),
             },
         );
@@ -371,10 +389,10 @@ mod test {
     fn complex_text_node() {
         let vars = json!({ "user": {"firstname": "Yuri", "lastname" : "Gagarin" } });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<h1>Dear {{user.firstname}} {{user.lastname}},</h1>".into(),
             },
         );
@@ -385,10 +403,10 @@ mod test {
     fn text_node_with_expressions() {
         let vars = json!({ "countries": [ "portugal" ] });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<h1>{{countries[0]}} {{ 1 + 2 }}</h1>".into(),
             },
         );
@@ -399,10 +417,10 @@ mod test {
     fn pl_if() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<p>this</p>\
                     <p pl-if='false'>not this</p>\
                     <p>also this</p>"
@@ -417,10 +435,10 @@ mod test {
     fn pl_else_if_true() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<p>this</p>\
                         <p pl-if='false'>not this</p>\
                         <p pl-else-if='true'>also this</p>"
@@ -434,10 +452,10 @@ mod test {
     fn pl_else_if_false() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<p>this</p>\
                         <p pl-if='false'>not this</p>\
                         <p pl-else-if='false'>also this</p>"
@@ -451,10 +469,10 @@ mod test {
     fn pl_is() {
         let vars = json!({ "header": true });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<p pl-is='header ? \"h1\" : \"h2\"'>this</p>".into(),
             },
         );
@@ -465,10 +483,10 @@ mod test {
     fn pl_html() {
         let vars = json!({ "content": "<p>hello world</p>" });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<article pl-html='content'>something that used to be here</article>".into(),
             },
         );
@@ -480,10 +498,10 @@ mod test {
     fn pl_html_with_template() {
         let vars = json!({ "content": "<p>hello world</p>" });
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<template pl-html='content'>something that used to be here</template>"
                     .into(),
             },
@@ -492,14 +510,13 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn template_preserved() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<template><h1>hello</h1></template>".into(),
             },
         );
@@ -510,10 +527,10 @@ mod test {
     fn pl_for() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<div><p pl-for='x in [1,2,3]'>{{x}}</p></div>".into(),
             },
         );
@@ -525,10 +542,10 @@ mod test {
     fn pl_for_template() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: "<div><template pl-for='x in [1,2,3]'><p>{{x}}</p></template></div>".into(),
             },
         );
@@ -540,10 +557,10 @@ mod test {
     fn loop_with_if_else() {
         let vars = Map::new().into();
 
-        let result = render(
+        let result = render_to_string(
             &vars,
             &PathBuf::new(),
-            &MockFilesystem {
+            &MockSingleFile {
                 data: r#"<div pl-if='"A" == "Z"'>A</div>\
     <div pl-for="_ in [1,3]" v-else-if='"A" == "A"'>B</div>\
     <div pl-else-if='"A" == "A"'>C</div>\
@@ -552,5 +569,25 @@ mod test {
             },
         );
         assert_eq!(result, "<div>B</div><div>B</div>");
+    }
+
+    #[test]
+    fn pl_src() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &"index.html".into(),
+            &MockMultiFile {
+                data: HashMap::from([
+                    (
+                        "index.html".into(),
+                        "<article><slot pl-src='embed.html'></slot></article>".to_owned(),
+                    ),
+                    ("embed.html".into(), "<p>hello world</p>".to_owned()),
+                ]),
+            },
+        );
+        assert_eq!(result, "<article><p>hello world</p></article>");
     }
 }
