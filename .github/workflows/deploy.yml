@@ -31,8 +31,8 @@ jobs:
       - run: rustup update stable && rustup default stable
       - run: cargo build --verbose
       - run: cargo install wasm-pack
-      - name: wasm-pack build --target web
-        run: |
+      - run: wasm-pack build --target web
+      - run: |
           mkdir dist
           cp -r pkg dist
           cp index.html dist
