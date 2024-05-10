@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+    <head>
+        <title>platlet</title>
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+        <style>
+            :root {
+                font-family: sans-serif;
+            }
+
+            .editors {
+                display: flex;
+            }
+
+            html body .codeflask__flatten {
+                font-size: 1rem;
+            }
+
+            .editor {
+                width: 50%;
+                /* border: 2px solid blue; */
+            }
+        </style>
+    </head>
+    <body>
+        <header></header>
+        <main class="editors">
+            <div id="html-editor" class="editor"></div>
+            <div id="json-editor" class="editor"></div>
+            <div id="html-output" class="editor"></div>
+        </main>
+        <script type="module">
+            import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
+            import init, { render } from "./pkg/platelet.js";
+
+            const htmlEditor = new CodeFlask("#html-editor", {
+                language: "html",
+            });
+            const jsonEditor = new CodeFlask("#json-editor", {
+                language: "javascript",
+            });
+            const htmlOutput = new CodeFlask("#html-output", {
+                language: "html",
+                readonly: true,
+            });
+            htmlEditor.updateCode(
+                `<h1>Hello Platelet!</h1>
+
+<p>Here are the {{ n }} times tables:</p>
+
+<ul pl-if="n > 0">
+    <li pl-for="i in [1, 2, 3, 4, 5, 6, 7, 8, 9]">
+        {{ i }} * {{ n }} = {{ i * n }}
+    </li>
+</ul>
+
+<p pl-else>wait ... there are no {{ n }} times tables</p>
+`,
+            );
+            jsonEditor.updateCode(`{ "n": 7 }`);
+            htmlOutput.updateCode(`loading...`);
+
+            async function hookUp() {
+                await init();
+
+                htmlEditor.onUpdate((code) => {
+                    refreshOutput(code, jsonEditor.code);
+                });
+
+                jsonEditor.onUpdate((code) => {
+                    refreshOutput(htmlEditor.code, code);
+                });
+
+                function refreshOutput(html, json) {
+                    try {
+                        let result = render(html, json);
+                        htmlOutput.updateCode(result);
+                    } catch (e) {
+                        console.error(e);
+                        htmlOutput.updateCode(e.toString());
+                    }
+                }
+
+                refreshOutput(htmlEditor.code, jsonEditor.code);
+            }
+
+            hookUp();
+        </script>
+    </body>
+</html>

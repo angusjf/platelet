@@ -311,22 +311,26 @@ where
         .replace("</#document>", "")
 }
 
+pub fn render_string(vars: &Value, html: String) -> String {
+    render_to_string(&vars, &PathBuf::new(), &MockSingleFile { data: html })
+}
+
+struct MockSingleFile {
+    data: String,
+}
+
+impl Filesystem for MockSingleFile {
+    fn get_data_at_path(&self, _: &PathBuf) -> String {
+        self.data.clone()
+    }
+}
+
 #[cfg(test)]
 mod test {
 
     use serde_json::{json, Map};
 
     use super::*;
-
-    struct MockSingleFile {
-        data: String,
-    }
-
-    impl Filesystem for MockSingleFile {
-        fn get_data_at_path(&self, _: &PathBuf) -> String {
-            self.data.clone()
-        }
-    }
 
     struct MockMultiFile {
         data: HashMap<PathBuf, String>,

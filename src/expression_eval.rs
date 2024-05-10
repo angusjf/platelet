@@ -56,12 +56,34 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     _ => Err(EvalError::TypeMismatch),
                 },
                 BinaryOperator::Subtract => todo!(),
-                BinaryOperator::Multiply => todo!(),
+                BinaryOperator::Multiply => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let sum = n.as_i64().unwrap() * m.as_i64().unwrap();
+                            Ok(Value::Number(sum.into()))
+                        } else {
+                            let sum = n.as_f64().unwrap() * m.as_f64().unwrap();
+                            Ok(Value::Number(Number::from_f64(sum).unwrap()))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
                 BinaryOperator::Divide => todo!(),
                 BinaryOperator::Modulo => todo!(),
                 BinaryOperator::EqualTo => Ok(Value::Bool(are_equal(&a, &b))),
                 BinaryOperator::NotEqualTo => Ok(Value::Bool(!are_equal(&a, &b))),
-                BinaryOperator::GreaterThan => todo!(),
+                BinaryOperator::GreaterThan => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let result = n.as_i64().unwrap() > m.as_i64().unwrap();
+                            Ok(Value::Bool(result))
+                        } else {
+                            let result = n.as_f64().unwrap() > m.as_f64().unwrap();
+                            Ok(Value::Bool(result))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
                 BinaryOperator::GreterThanOrEqualTo => todo!(),
                 BinaryOperator::LessThan => todo!(),
                 BinaryOperator::LessThanOrEqualTo => todo!(),
@@ -254,6 +276,22 @@ mod test {
         let mut exp = "99 + 1 + 100";
         let exp = expr(&mut exp).unwrap();
         assert_eq!(eval(&exp, &vars), Ok(200.into()));
+    }
+
+    #[test]
+    fn mul_numbers() {
+        let vars = Map::new().into();
+        let mut exp = "99 * 1 * 100";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(9900.into()));
+    }
+
+    #[test]
+    fn gt_numbers() {
+        let vars = json!({ "n" : 99 });
+        let mut exp = "n > 1";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(true.into()));
     }
 
     #[test]
