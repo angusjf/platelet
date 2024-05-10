@@ -87,9 +87,28 @@ fn or_expression(input: &mut &str) -> PResult<Expression> {
 }
 
 fn and_expression(input: &mut &str) -> PResult<Expression> {
-    let x = comparison_expression.parse_next(input)?;
+    let x = equality_operation.parse_next(input)?;
     if let Ok(op) = delimited(ws, "&&".value(BinaryOperator::And), ws).parse_next(input) {
         let y = and_expression(input)?;
+        return Ok(Expression::BinaryOperation(Box::new((x, op, y))));
+    } else {
+        return Ok(x);
+    }
+}
+
+fn equality_operation(input: &mut &str) -> PResult<Expression> {
+    let x = comparison_expression.parse_next(input)?;
+    if let Ok(op) = delimited(
+        ws,
+        alt((
+            "==".value(BinaryOperator::EqualTo),
+            "!=".value(BinaryOperator::NotEqualTo),
+        )),
+        ws,
+    )
+    .parse_next(input)
+    {
+        let y = equality_operation(input)?;
         return Ok(Expression::BinaryOperation(Box::new((x, op, y))));
     } else {
         return Ok(x);
@@ -105,8 +124,6 @@ fn comparison_expression(input: &mut &str) -> PResult<Expression> {
             ">".value(BinaryOperator::GreaterThan),
             "<=".value(BinaryOperator::LessThanOrEqualTo),
             "<".value(BinaryOperator::LessThan),
-            "==".value(BinaryOperator::EqualTo),
-            "!=".value(BinaryOperator::NotEqualTo),
         )),
         ws,
     )
@@ -731,6 +748,27 @@ mod test {
                     Expression::Num(1.into()),
                     BinaryOperator::Modulo,
                     Expression::Num(3.into())
+                )))
+            ))
+        )
+    }
+
+    #[test]
+    fn expression_conditional_order_of_ops() {
+        let input = r#"1 < 2 == true"#;
+
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::BinaryOperation(Box::new((
+                    Expression::BinaryOperation(Box::new((
+                        Expression::Num(1.into()),
+                        BinaryOperator::LessThan,
+                        Expression::Num(2.into())
+                    ))),
+                    BinaryOperator::EqualTo,
+                    Expression::Boolean(true.into())
                 )))
             ))
         )
