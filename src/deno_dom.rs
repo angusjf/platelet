@@ -13,6 +13,9 @@ use std::cell::RefCell;
 use std::io::Write;
 use std::rc::Rc;
 
+/// credit to the deno-dom dev, https://github.com/b-fuze
+/// MIT Licence
+
 pub fn pre_parse(html: String) -> RcDom {
     let sink: RcDom = Default::default();
     let parser = parse_document(sink, Default::default());

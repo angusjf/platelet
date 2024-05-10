@@ -1,12 +1,7 @@
-use markup5ever::{namespace_url, ns, LocalName, QualName};
-use serde::{Deserialize, Deserializer, Serialize};
-
-use core::fmt;
 use serde_json::Value;
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::rc::Rc;
 
 use crate::expression_eval::{eval, truthy};
 use crate::expression_parser::expr;
@@ -73,7 +68,7 @@ enum Cmd {
 impl Node {
     fn to_string(&self) -> String {
         match self {
-            Node::Small { content, id: _id } => content.clone(),
+            Node::Small { content, id: _ } => content.clone(),
             Node::Big {
                 id: _,
                 name,
@@ -122,13 +117,20 @@ where
             name,
             ..
         } => {
+            println!("{:?}", previous_conditional);
+
+            if !(attrs.contains_key("pl-if") || attrs.contains_key("pl-else-if")) {
+                *next_neighbour_conditional = None;
+            }
+
             if let Some(exp) = attrs.get("pl-if") {
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(v) => {
-                            let cond = !truthy(&v);
+                            let cond = truthy(&v);
                             *next_neighbour_conditional = Some(cond);
-                            if cond {
+                            println!("setting to: {:?}", next_neighbour_conditional);
+                            if !cond {
                                 return Cmd::DeleteMe;
                             }
                             attrs.remove("pl-if");
@@ -148,9 +150,9 @@ where
                     Some(false) => match expr(&mut exp.as_ref()) {
                         Ok(exp) => match eval(&exp, vars) {
                             Ok(v) => {
-                                let cond = !truthy(&v);
+                                let cond = truthy(&v);
                                 *next_neighbour_conditional = Some(cond);
-                                if cond {
+                                if !cond {
                                     return Cmd::DeleteMe;
                                 }
                                 attrs.remove("pl-else-if");
@@ -161,10 +163,6 @@ where
                     },
                     None => todo!(),
                 }
-            }
-
-            if !(attrs.contains_key("pl-else-if") || attrs.contains_key("pl-else-if")) {
-                *next_neighbour_conditional = None;
             }
 
             if attrs.contains_key("pl-else") {
@@ -233,18 +231,11 @@ where
 
             let mut i = 0;
 
-            let mut running_prev_cond = None;
-            let mut running_cond = None;
+            let mut get_this = None;
+            let mut set_this = None;
             while i < children.len() {
                 let child = children[i].borrow_mut();
-                match render_elem(
-                    child,
-                    vars,
-                    &running_prev_cond,
-                    &mut running_cond,
-                    filename,
-                    filesystem,
-                ) {
+                match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem) {
                     Cmd::DeleteMe => {
                         children.remove(i);
                     }
@@ -255,8 +246,8 @@ where
                             render_elem(
                                 &mut child,
                                 &ctx,
-                                &running_prev_cond,
-                                &mut running_cond,
+                                &get_this,
+                                &mut set_this,
                                 filename,
                                 filesystem,
                             );
@@ -272,7 +263,8 @@ where
                         i += 1;
                     }
                 };
-                running_prev_cond = running_cond;
+                println!("output: {:?}", set_this);
+                get_this = set_this;
             }
 
             return Cmd::Nothing;
@@ -573,6 +565,34 @@ mod test {
             },
         );
         assert_eq!(result, "<div>B</div><div>B</div>");
+    }
+
+    #[test]
+    fn pl_else_true() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<p pl-if="true">A</p><p pl-else>B</p>"#.into(),
+            },
+        );
+        assert_eq!(result, "<p>A</p>");
+    }
+
+    #[test]
+    fn pl_else_false() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<p pl-if="false">A</p><p pl-else>B</p>"#.into(),
+            },
+        );
+        assert_eq!(result, "<p>B</p>");
     }
 
     #[test]
