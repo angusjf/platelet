@@ -232,6 +232,7 @@ where
                             children.clear();
                             let node = parse_html(html);
                             children.push(node);
+                            return Cmd::Nothing;
                         }
                         Ok(_v) => {
                             todo!()
@@ -610,6 +611,20 @@ mod test {
             },
         );
         assert_eq!(result, "<article><p>hello world</p></article>");
+    }
+
+    #[test]
+    fn pl_html_with_vars_are_not_rendered() {
+        let vars = json!({ "content": "<p>hello {{mistake}} world</p>" });
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: "<article pl-html='content'>something that used to be here</article>".into(),
+            },
+        );
+        assert_eq!(result, "<article><p>hello {{mistake}} world</p></article>");
     }
 
     #[test]
