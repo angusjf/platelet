@@ -25,7 +25,13 @@ enum Node {
     },
     Comment {
         content: String,
-    }, // Document,
+    },
+    Document {
+        children: Vec<Node>,
+    },
+    Doctype {
+        doctype: String,
+    },
 }
 
 // type node = [NodeType, nodeName, attributes, node[]]
@@ -40,7 +46,10 @@ fn node_from_array(val: &Value) -> Node {
         2 => panic!("node id 2 is for attributes"),
         4 => panic!("unexpected CDATA section"),
         7 => panic!("unexpected PROCESSING_INSTRUCTION_NODE section"),
-        9 | 1 | 10 => Node::Element {
+        9 => Node::Document {
+            children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
+        },
+        1 => Node::Element {
             name: val[1].as_str().unwrap().to_owned(),
             attrs: val[2]
                 .as_array()
@@ -56,6 +65,10 @@ fn node_from_array(val: &Value) -> Node {
                 .collect(),
             children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
         },
+        10 => Node::Doctype {
+            doctype: val[1].as_str().unwrap().to_owned(),
+        },
+
         3 => Node::Text {
             content: val[1].as_str().unwrap().to_owned(),
         },
@@ -77,6 +90,7 @@ enum Cmd {
 impl Node {
     fn to_string(&self) -> String {
         match self {
+            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", doctype),
             Node::Comment { content } => format!("<!--{}-->", content),
             Node::Text { content } => content.clone(),
             Node::Element {
@@ -104,6 +118,7 @@ impl Node {
                     }
                 }
             }
+            Node::Document { children } => children.iter().map(|child| child.to_string()).collect(),
         }
     }
 }
@@ -120,6 +135,11 @@ where
     F: Filesystem,
 {
     match node {
+        Node::Doctype { .. } => return Cmd::Nothing,
+        Node::Document { children } => {
+            render_children(children, vars, filename, filesystem);
+            return Cmd::Nothing;
+        }
         Node::Comment { .. } => return Cmd::Nothing,
         Node::Text { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
             Ok(content) => {
@@ -246,45 +266,52 @@ where
 
             modify_attrs(attrs, vars);
 
-            let mut i = 0;
-
-            let mut get_this = None;
-            let mut set_this = None;
-            while i < children.len() {
-                let child = children[i].borrow_mut();
-                match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem) {
-                    Cmd::DeleteMe => {
-                        children.remove(i);
-                    }
-                    Cmd::Loop(contexts) => {
-                        let child = children.remove(i);
-                        for ctx in contexts {
-                            let mut child = child.clone();
-                            render_elem(
-                                &mut child,
-                                &ctx,
-                                &get_this,
-                                &mut set_this,
-                                filename,
-                                filesystem,
-                            );
-                            children.insert(i, child);
-                            i += 1;
-                        }
-                    }
-                    Cmd::Nothing => {
-                        i += 1;
-                    }
-                    Cmd::ReplaceMeWith(node) => {
-                        children[i] = node;
-                        i += 1;
-                    }
-                };
-                get_this = set_this;
-            }
+            render_children(children, vars, filename, filesystem);
 
             return Cmd::Nothing;
         }
+    }
+}
+
+fn render_children<F>(children: &mut Vec<Node>, vars: &Value, filename: &PathBuf, filesystem: &F)
+where
+    F: Filesystem,
+{
+    let mut i = 0;
+
+    let mut get_this = None;
+    let mut set_this = None;
+    while i < children.len() {
+        let child = children[i].borrow_mut();
+        match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem) {
+            Cmd::DeleteMe => {
+                children.remove(i);
+            }
+            Cmd::Loop(contexts) => {
+                let child = children.remove(i);
+                for ctx in contexts {
+                    let mut child = child.clone();
+                    render_elem(
+                        &mut child,
+                        &ctx,
+                        &get_this,
+                        &mut set_this,
+                        filename,
+                        filesystem,
+                    );
+                    children.insert(i, child);
+                    i += 1;
+                }
+            }
+            Cmd::Nothing => {
+                i += 1;
+            }
+            Cmd::ReplaceMeWith(node) => {
+                children[i] = node;
+                i += 1;
+            }
+        };
+        get_this = set_this;
     }
 }
 
@@ -352,10 +379,33 @@ fn modify_attrs(attrs: &mut HashMap<String, String>, vars: &Value) {
 }
 
 fn parse_html(html: String) -> Node {
-    let node = deno_dom::parse_frag(html, "body".to_owned());
+    let full_doc = html.contains("<html");
+
+    let node = if full_doc {
+        deno_dom::parse(html)
+    } else {
+        deno_dom::parse_frag(html, "body".to_owned())
+    };
     let node = serde_json::from_str(&node).unwrap();
     let node = node_from_array(&node);
-    node
+
+    if full_doc {
+        node
+    } else {
+        match node {
+            Node::Document { ref children } => match &children[..] {
+                [Node::Element {
+                    ref name,
+                    ref attrs,
+                    children,
+                }] if name == "html" && attrs.is_empty() => Node::Document {
+                    children: children.clone(),
+                },
+                _ => node,
+            },
+            _ => node,
+        }
+    }
 }
 
 fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Node
@@ -374,12 +424,7 @@ pub fn render_to_string<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> 
 where
     F: Filesystem,
 {
-    render(vars, filename, filesystem)
-        .to_string()
-        .replace("<#document>", "")
-        .replace("<html>", "")
-        .replace("</html>", "")
-        .replace("</#document>", "")
+    render(vars, filename, filesystem).to_string()
 }
 
 pub fn render_string(vars: &Value, html: String) -> String {
@@ -428,7 +473,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn templateless_html_doc() {
         let vars = json!({ "hello": "world" });
 
@@ -442,7 +486,7 @@ mod test {
         );
         assert_eq!(
             result,
-            "<!doctype html><html><head><title>a</title></head><body></body></html>"
+            "<!DOCTYPE html><html><head><title>a</title></head><body></body></html>"
         );
     }
 
