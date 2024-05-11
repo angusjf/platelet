@@ -307,7 +307,7 @@ fn string(input: &mut &str) -> PResult<String> {
 // }
 
 pub(crate) fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
-    take_while(1.., ('a'..='z', 'A'..='Z'))
+    take_while(1.., ('a'..='z', 'A'..='Z', '_'))
         .parse_next(input)
         .map(|s| s.to_string())
 }

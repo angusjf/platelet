@@ -16,3 +16,7 @@ pub fn render(html: String, context: String) -> String {
 
     renderer::render_string(&context, html)
 }
+
+pub fn render_string(html: String, context: &Value) -> String {
+    renderer::render_string(&context, html)
+}

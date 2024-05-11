@@ -85,7 +85,15 @@ impl Node {
                     .map(|child| child.to_string())
                     .collect::<String>();
 
-                format!("<{}{}>{}</{}>", name, attrs_str, children_str, name)
+                match name.as_str() {
+                    "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link"
+                    | "meta" | "param" | "source" | "track" | "wbr" => {
+                        format!("<{}{}>", name, attrs_str)
+                    }
+                    _ => {
+                        format!("<{}{}>{}</{}>", name, attrs_str, children_str, name)
+                    }
+                }
             }
         }
     }
@@ -117,8 +125,6 @@ where
             name,
             ..
         } => {
-            println!("{:?}", previous_conditional);
-
             if !(attrs.contains_key("pl-if") || attrs.contains_key("pl-else-if")) {
                 *next_neighbour_conditional = None;
             }
@@ -129,7 +135,6 @@ where
                         Ok(v) => {
                             let cond = truthy(&v);
                             *next_neighbour_conditional = Some(cond);
-                            println!("setting to: {:?}", next_neighbour_conditional);
                             if !cond {
                                 return Cmd::DeleteMe;
                             }
@@ -137,7 +142,7 @@ where
                         }
                         Err(_e) => todo!(),
                     },
-                    Err(_x) => todo!(),
+                    Err(x) => panic!("{:?}", x),
                 }
             }
 
@@ -265,7 +270,6 @@ where
                         i += 1;
                     }
                 };
-                println!("output: {:?}", set_this);
                 get_this = set_this;
             }
 
@@ -274,13 +278,25 @@ where
     }
 }
 
+fn html_safe(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    // .replace('/', "&#x2F;")
+    // .replace('`', "&#x60;")
+    // .replace('=', "&#x3D;")
+    //  TODO sort this mess
+}
+
 fn attrify(val: &Value) -> Option<String> {
     match val {
         Value::Null => None,
         Value::Bool(false) => None,
         Value::Bool(true) => Some("true".into()),
         Value::Number(n) => Some(n.to_string()),
-        Value::String(s) => Some(s.into()),
+        Value::String(s) => Some(html_safe(s)),
         Value::Array(a) => {
             let xs: Vec<_> = a.iter().filter_map(attrify).collect();
 
