@@ -15,16 +15,17 @@ pub trait Filesystem {
 
 #[derive(Debug, Clone)]
 enum Node {
-    Small {
-        id: u64,
+    Text {
         content: String,
     },
-    Big {
-        id: u64,
+    Element {
         name: String,
         attrs: HashMap<String, String>,
         children: Vec<Node>,
     },
+    Comment {
+        content: String,
+    }, // Document,
 }
 
 // type node = [NodeType, nodeName, attributes, node[]]
@@ -32,14 +33,14 @@ enum Node {
 fn node_from_array(val: &Value) -> Node {
     let val = val.as_array().unwrap();
 
-    if val.len() == 2 {
-        Node::Small {
-            id: val[0].as_u64().unwrap(),
-            content: val[1].as_str().unwrap().to_owned(),
-        }
-    } else {
-        Node::Big {
-            id: val[0].as_u64().unwrap(),
+    let id = val[0].as_u64().unwrap();
+
+    match id {
+        0 => panic!("node id 0 is undefined"),
+        2 => panic!("node id 2 is for attributes"),
+        4 => panic!("unexpected CDATA section"),
+        7 => panic!("unexpected PROCESSING_INSTRUCTION_NODE section"),
+        9 | 1 | 10 => Node::Element {
             name: val[1].as_str().unwrap().to_owned(),
             attrs: val[2]
                 .as_array()
@@ -54,7 +55,15 @@ fn node_from_array(val: &Value) -> Node {
                 })
                 .collect(),
             children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
-        }
+        },
+        3 => Node::Text {
+            content: val[1].as_str().unwrap().to_owned(),
+        },
+        8 => Node::Comment {
+            content: val[1].as_str().unwrap().to_owned(),
+        },
+        11 => panic!("unexpected DOCUMENT_FRAGMENT_NODE"),
+        5 | 6 | 12.. => panic!("node ids 5, 6 and above 12 are not in the spec"),
     }
 }
 
@@ -68,9 +77,9 @@ enum Cmd {
 impl Node {
     fn to_string(&self) -> String {
         match self {
-            Node::Small { content, id: _ } => content.clone(),
-            Node::Big {
-                id: _,
+            Node::Comment { content } => format!("<!--{}-->", content),
+            Node::Text { content } => content.clone(),
+            Node::Element {
                 name,
                 attrs,
                 children,
@@ -111,7 +120,8 @@ where
     F: Filesystem,
 {
     match node {
-        Node::Small { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
+        Node::Comment { .. } => return Cmd::Nothing,
+        Node::Text { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
             Ok(content) => {
                 let content = content.to_string();
                 *t = content;
@@ -119,7 +129,7 @@ where
             }
             Err(e) => panic!("{:?}", e),
         },
-        Node::Big {
+        Node::Element {
             attrs,
             children,
             name,
@@ -695,7 +705,7 @@ mod test {
                 data: r#"<input ^value='"my" + " " + "name"'>"#.into(),
             },
         );
-        assert_eq!(result, "<input value='my name'></input>");
+        assert_eq!(result, "<input value='my name'>");
     }
 
     #[test]
@@ -709,7 +719,7 @@ mod test {
                 data: r#"<input ^disabled='false'>"#.into(),
             },
         );
-        assert_eq!(result, "<input></input>");
+        assert_eq!(result, "<input>");
     }
 
     #[test]
@@ -741,5 +751,19 @@ mod test {
             result,
             "<button class='should-also-have should-have'></button>"
         );
+    }
+
+    #[test]
+    fn comments_uneffected() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<!-- MAKE ART NOT SOFTWARE -->"#.into(),
+            },
+        );
+        assert_eq!(result, "<!-- MAKE ART NOT SOFTWARE -->");
     }
 }
