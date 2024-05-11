@@ -77,7 +77,7 @@ impl Node {
             } => {
                 let attrs_str = attrs
                     .iter()
-                    .map(|(key, value)| format!(" {}=\"{}\"", key, value))
+                    .map(|(key, value)| format!(" {}='{}'", key, value))
                     .collect::<String>();
 
                 let children_str = children
@@ -229,6 +229,8 @@ where
                 }
             }
 
+            modify_attrs(attrs, vars);
+
             let mut i = 0;
 
             let mut get_this = None;
@@ -269,6 +271,57 @@ where
 
             return Cmd::Nothing;
         }
+    }
+}
+
+fn attrify(val: &Value) -> Option<String> {
+    match val {
+        Value::Null => None,
+        Value::Bool(false) => None,
+        Value::Bool(true) => Some("true".into()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::String(s) => Some(s.into()),
+        Value::Array(a) => {
+            let xs: Vec<_> = a.iter().filter_map(attrify).collect();
+
+            Some(xs.join(" "))
+        }
+        Value::Object(o) => {
+            let xs: Vec<_> = o
+                .iter()
+                .filter_map(|(k, v)| if truthy(v) { Some(k.to_owned()) } else { None })
+                .collect();
+            Some(xs.join(" "))
+        }
+    }
+}
+
+fn modify_attrs(attrs: &mut HashMap<String, String>, vars: &Value) {
+    let mut delete_me = vec![];
+    let mut to_insert: HashMap<String, String> = HashMap::new();
+
+    for (c_name, val) in attrs.clone() {
+        if let Some(name) = c_name.strip_prefix('^') {
+            let name = name.to_owned();
+            delete_me.push(c_name.clone());
+            let exp = expr(&mut val.as_ref()).unwrap();
+            let v = eval(&exp, vars).unwrap();
+            match attrify(&v) {
+                // Ok(Value::Bool(false)) |
+                None => {}
+                Some(s) => {
+                    to_insert.insert(name.to_owned(), s);
+                }
+            }
+        }
+    }
+
+    for name in delete_me.iter() {
+        attrs.remove(name).unwrap();
+    }
+
+    for (attr, v) in to_insert.drain() {
+        attrs.insert(attr, v);
     }
 }
 
@@ -613,5 +666,64 @@ mod test {
             },
         );
         assert_eq!(result, "<article><p>hello world</p></article>");
+    }
+
+    #[test]
+    fn caret_attr_eval() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<input ^value='"my" + " " + "name"'>"#.into(),
+            },
+        );
+        assert_eq!(result, "<input value='my name'></input>");
+    }
+
+    #[test]
+    fn caret_attr_false() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<input ^disabled='false'>"#.into(),
+            },
+        );
+        assert_eq!(result, "<input></input>");
+    }
+
+    #[test]
+    fn caret_attr_array() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<button ^class='["warn", "error"]'></button>"#.into(),
+            },
+        );
+        assert_eq!(result, "<button class='warn error'></button>");
+    }
+
+    #[test]
+    fn caret_attr_object() {
+        let vars = json!({ "classes": { "should-have": true, "should-not-have": null, "should-also-have": 1 } });
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<button ^class='classes'></button>"#.into(),
+            },
+        );
+        assert_eq!(
+            result,
+            "<button class='should-also-have should-have'></button>"
+        );
     }
 }
