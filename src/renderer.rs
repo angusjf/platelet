@@ -20,7 +20,7 @@ enum Node {
     },
     Element {
         name: String,
-        attrs: HashMap<String, String>,
+        attrs: Vec<(String, String)>,
         children: Vec<Node>,
     },
     Comment {
@@ -85,6 +85,7 @@ enum Cmd {
     DeleteMe,
     Loop(Vec<Value>),
     ReplaceMeWith(Node),
+    ChildrenOnly,
 }
 
 impl Node {
@@ -150,16 +151,17 @@ where
             Err(e) => panic!("{:?}", e),
         },
         Node::Element {
-            attrs,
+            attrs: attrs_list,
             children,
             name,
             ..
         } => {
-            if !(attrs.contains_key("pl-if") || attrs.contains_key("pl-else-if")) {
-                *next_neighbour_conditional = None;
-            }
+            // if !(attrsList.re.contains_key("pl-if") || attrs.contains_key("pl-else-if")) {
+            //     *next_neighbour_conditional = None;
+            // }
 
-            if let Some(exp) = attrs.get("pl-if") {
+            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
+                let (_, exp) = &attrs_list[exp_index];
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(v) => {
@@ -167,8 +169,10 @@ where
                             *next_neighbour_conditional = Some(cond);
                             if !cond {
                                 return Cmd::DeleteMe;
+                            } else if name == "template" {
+                                return Cmd::ChildrenOnly;
                             }
-                            attrs.remove("pl-if");
+                            attrs_list.remove(exp_index);
                         }
                         Err(_e) => todo!(),
                     },
@@ -176,7 +180,8 @@ where
                 }
             }
 
-            if let Some(exp) = attrs.get("pl-else-if") {
+            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-else-if") {
+                let (_, exp) = &attrs_list[exp_index];
                 match previous_conditional {
                     Some(true) => {
                         *next_neighbour_conditional = Some(true);
@@ -190,7 +195,7 @@ where
                                 if !cond {
                                     return Cmd::DeleteMe;
                                 }
-                                attrs.remove("pl-else-if");
+                                attrs_list.remove(exp_index);
                             }
                             Err(_e) => todo!(),
                         },
@@ -200,39 +205,48 @@ where
                 }
             }
 
-            if attrs.contains_key("pl-else") {
+            if let Some(index) = attrs_list.iter().position(|(name, _)| name == "pl-else") {
                 match previous_conditional {
                     Some(true) => {
                         return Cmd::DeleteMe;
                     }
                     Some(false) => {
-                        attrs.remove("pl-else");
+                        attrs_list.remove(index);
                     }
                     None => todo!(),
                 }
             }
 
-            if let Some(fl) = attrs.get("pl-for") {
-                let fl = fl.clone();
-                attrs.remove("pl-for");
+            if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
+                let (_, fl) = &attrs_list[fl_index];
+
                 match for_loop(&mut fl.as_ref()) {
                     Ok(fl) => match for_loop_runner::for_loop_runner(&fl, vars) {
-                        Ok(contexts) => return Cmd::Loop(contexts),
+                        Ok(contexts) => {
+                            attrs_list.remove(fl_index);
+                            return Cmd::Loop(contexts);
+                        }
                         Err(_e) => todo!(),
                     },
                     Err(_x) => todo!(),
                 }
             }
 
-            if let Some(exp) = attrs.get("pl-html") {
+            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
+                let (_, exp) = &attrs_list[exp_index];
+
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(Value::String(html)) => {
-                            attrs.remove("pl-html");
-                            children.clear();
                             let node = parse_html(html);
-                            children.push(node);
-                            return Cmd::Nothing;
+                            if name == "template" {
+                                return Cmd::ReplaceMeWith(node);
+                            } else {
+                                attrs_list.remove(exp_index);
+                                children.clear();
+                                children.push(node);
+                                return Cmd::Nothing;
+                            }
                         }
                         Ok(_v) => {
                             todo!()
@@ -243,17 +257,21 @@ where
                 }
             }
 
-            if let Some(src) = attrs.get("pl-src") {
+            if let Some(src_index) = attrs_list.iter().position(|(name, _)| name == "pl-src") {
+                let (_, src) = &attrs_list[src_index];
+
                 let path = filename.parent().unwrap().join(src);
                 let rendered = render(vars, &path, filesystem);
                 return Cmd::ReplaceMeWith(rendered);
             }
 
-            if let Some(exp) = attrs.get("pl-is") {
+            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
+                let (_, exp) = &attrs_list[exp_index];
+
                 match expr(&mut exp.as_ref()) {
                     Ok(exp) => match eval(&exp, vars) {
                         Ok(Value::String(tag)) => {
-                            attrs.remove("pl-is");
+                            attrs_list.remove(exp_index);
                             *name = tag;
                         }
                         Ok(_v) => {
@@ -265,7 +283,7 @@ where
                 }
             }
 
-            modify_attrs(attrs, vars);
+            modify_attrs(attrs_list, vars);
 
             render_children(children, vars, filename, filesystem);
 
@@ -311,6 +329,25 @@ where
                 children[i] = node;
                 i += 1;
             }
+            Cmd::ChildrenOnly => {
+                let child = children.remove(i);
+                let children_ = match child {
+                    Node::Element { children, .. } => children,
+                    _ => panic!(),
+                };
+                for mut child_ in children_ {
+                    render_elem(
+                        &mut child_,
+                        &vars,
+                        &get_this,
+                        &mut set_this,
+                        filename,
+                        filesystem,
+                    );
+                    children.insert(i, child_);
+                    i += 1;
+                }
+            }
         };
         get_this = set_this;
     }
@@ -350,33 +387,45 @@ fn attrify(val: &Value) -> Option<String> {
     }
 }
 
-fn modify_attrs(attrs: &mut HashMap<String, String>, vars: &Value) {
-    let mut delete_me = vec![];
-    let mut to_insert: HashMap<String, String> = HashMap::new();
-
-    for (c_name, val) in attrs.clone() {
-        if let Some(name) = c_name.strip_prefix('^') {
-            let name = name.to_owned();
-            delete_me.push(c_name.clone());
+fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
+    attrs.retain_mut(|(name_original, val)| {
+        if let Some(name) = name_original.strip_prefix('^') {
             let exp = expr(&mut val.as_ref()).unwrap();
             let v = eval(&exp, vars).unwrap();
             match attrify(&v) {
-                // Ok(Value::Bool(false)) |
-                None => {}
+                None => false,
                 Some(s) => {
-                    to_insert.insert(name.to_owned(), s);
+                    *name_original = name.to_owned();
+                    *val = s;
+                    true
                 }
             }
+        } else {
+            true
         }
-    }
+    });
 
-    for name in delete_me.iter() {
-        attrs.remove(name).unwrap();
-    }
+    // let mut delete_me = vec![];
+    // let mut to_insert: HashMap<String, String> = HashMap::new();
 
-    for (attr, v) in to_insert.drain() {
-        attrs.insert(attr, v);
-    }
+    // for (c_name, val) in attrs.clone() {
+    //
+    //         let name = name.to_owned();
+    //         delete_me.push(c_name.clone());
+    //
+    //
+    //
+    //
+    //     }
+    // }
+
+    // for name in delete_me.iter() {
+    //     attrs.remove(name).unwrap();
+    // }
+
+    // for (attr, v) in to_insert.drain() {
+    //     attrs.insert(attr, v);
+    // }
 }
 
 fn parse_html(html: String) -> Node {
@@ -628,7 +677,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn pl_html_with_template() {
         let vars = json!({ "content": "<p>hello world</p>" });
 
@@ -684,6 +732,20 @@ mod test {
             },
         );
         assert_eq!(result, "<div><p>1</p><p>2</p><p>3</p></div>");
+    }
+
+    #[test]
+    fn pl_if_template() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: "<div><template pl-if='[1]'><p>hello</p><p>world</p></template></div>".into(),
+            },
+        );
+        assert_eq!(result, "<div><p>hello</p><p>world</p></div>");
     }
 
     #[test]
@@ -824,5 +886,19 @@ mod test {
             },
         );
         assert_eq!(result, "<!-- MAKE ART NOT SOFTWARE -->");
+    }
+
+    #[test]
+    fn order_unchanged() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<meta ^disabled="false" name="x" ^content='"y"'>"#.into(),
+            },
+        );
+        assert_eq!(result, "<meta name='x' content='y'>");
     }
 }
