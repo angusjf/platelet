@@ -434,7 +434,13 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
 }
 
 fn parse_html(html: String) -> Node {
-    let full_doc = html.contains("<html");
+    let full_doc = {
+        let html = html.to_lowercase();
+        html.contains("<html")
+            || html.contains("<body")
+            || html.contains("<head")
+            || html.contains("<!DOCTYPE")
+    };
 
     let node = if full_doc {
         deno_dom::parse(html)
