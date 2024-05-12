@@ -1,6 +1,5 @@
 use serde_json::Value;
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::expression_eval::{eval, truthy};
@@ -13,7 +12,7 @@ pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> String;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum Node {
     Text {
         content: String,
@@ -91,9 +90,9 @@ enum Cmd {
 impl Node {
     fn to_string(&self) -> String {
         match self {
-            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", doctype),
-            Node::Comment { content } => format!("<!--{}-->", content),
-            Node::Text { content } => content.clone(),
+            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_safe(doctype)),
+            Node::Comment { content } => format!("<!--{}-->", html_safe(content)),
+            Node::Text { content } => html_safe(content),
             Node::Element {
                 name,
                 attrs,
@@ -492,7 +491,9 @@ impl Filesystem for MockSingleFile {
 }
 
 #[cfg(test)]
-mod test {
+mod render_test {
+
+    use std::collections::HashMap;
 
     use serde_json::{json, Map};
 
@@ -827,6 +828,20 @@ mod test {
             },
         );
         assert_eq!(result, "<input value='my name'>");
+    }
+
+    #[test]
+    fn correct_escaping() {
+        let vars = json!({"x": "<code>&lt;TAG&gt;</code>"});
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<slot pl-html="x"></slot>"#.into(),
+            },
+        );
+        assert_eq!(result, "<slot><code>&lt;TAG&gt;</code></slot>");
     }
 
     #[test]

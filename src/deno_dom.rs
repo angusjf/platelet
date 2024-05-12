@@ -16,13 +16,6 @@ use std::rc::Rc;
 /// credit to the deno-dom dev, https://github.com/b-fuze
 /// MIT Licence
 
-pub fn pre_parse(html: String) -> RcDom {
-    let sink: RcDom = Default::default();
-    let parser = parse_document(sink, Default::default());
-
-    parser.one(html)
-}
-
 pub fn parse(html: String) -> String {
     let len = html.len();
     let sink: RcDom = Default::default();
@@ -59,12 +52,6 @@ fn dom_to_string(input_len: usize, dom: &RcDom) -> String {
     let mut buf = Vec::with_capacity(input_len + input_len / 3);
     serialize_node(&mut buf, &dom.document);
     String::from_utf8(buf).expect("serialize_node failed to produce valid UTF-8")
-}
-
-enum NodeType {
-    Element,
-    Text,
-    Irrelevant,
 }
 
 fn serialize_node(buf: &mut Vec<u8>, dom: &Rc<Node>) {
