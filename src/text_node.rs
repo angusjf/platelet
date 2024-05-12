@@ -54,20 +54,8 @@ fn stringify(v: &Value) -> Result<String, ()> {
         Value::Null => Ok("".to_owned()),
         Value::Bool(b) => Ok(b.to_string()),
         Value::Number(n) => Ok(n.to_string()),
-        Value::String(s) => Ok(escape(s)),
+        Value::String(s) => Ok(s.to_owned()),
         Value::Array(_) => Err(()),
         Value::Object(_) => Err(()),
     }
-}
-
-fn escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    // .replace('/', "&#x2F;")
-    // .replace('`', "&#x60;")
-    // .replace('=', "&#x3D;")
-    //  TODO sort this mess too
 }

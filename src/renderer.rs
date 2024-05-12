@@ -89,10 +89,28 @@ enum Cmd {
 
 impl Node {
     fn to_string(&self) -> String {
+        fn html_text_safe(s: &str) -> String {
+            s.replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;")
+            // .replace('"', "&quot;")
+            // .replace("'", "&#39;")
+            // .replace('/', "&#x2F;")
+            // .replace('`', "&#x60;")
+            // .replace('=', "&#x3D;")
+            //  TODO sort this mess
+        }
+        fn html_attr_safe(s: &str) -> String {
+            s.replace('"', "&quot;").replace("'", "&#39;")
+            // .replace('/', "&#x2F;")
+            // .replace('`', "&#x60;")
+            // .replace('=', "&#x3D;")
+            //  TODO sort this mess
+        }
         match self {
-            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_safe(doctype)),
-            Node::Comment { content } => format!("<!--{}-->", html_safe(content)),
-            Node::Text { content } => html_safe(content),
+            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_text_safe(doctype)),
+            Node::Comment { content } => format!("<!--{}-->", html_text_safe(content)),
+            Node::Text { content } => html_text_safe(content),
             Node::Element {
                 name,
                 attrs,
@@ -100,7 +118,7 @@ impl Node {
             } => {
                 let attrs_str = attrs
                     .iter()
-                    .map(|(key, value)| format!(" {}='{}'", key, value))
+                    .map(|(key, value)| format!(" {}='{}'", key, html_attr_safe(value)))
                     .collect::<String>();
 
                 let children_str = children
@@ -352,25 +370,13 @@ where
     }
 }
 
-fn html_safe(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace("'", "&#39;")
-    // .replace('/', "&#x2F;")
-    // .replace('`', "&#x60;")
-    // .replace('=', "&#x3D;")
-    //  TODO sort this mess
-}
-
 fn attrify(val: &Value) -> Option<String> {
     match val {
         Value::Null => None,
         Value::Bool(false) => None,
         Value::Bool(true) => Some("true".into()),
         Value::Number(n) => Some(n.to_string()),
-        Value::String(s) => Some(html_safe(s)),
+        Value::String(s) => Some(s.to_string()),
         Value::Array(a) => {
             let xs: Vec<_> = a.iter().filter_map(attrify).collect();
 
