@@ -124,7 +124,7 @@
                 </div>
                 <div class="title">
                     <h1><b>Platelet</b> is an <b>HTML-first</b> templating language.</h1>
-                    <p>Modern alternative to handlebars, Jinja etc</p>
+                    <p>Modern alternative to handlebars/Jinja for Rust.</p>
                     <div class="actions">
                         <a class="button primary" href="/platelet/demo">Try it</a>
                         <a class="button" href="https://github.com/angusjf/platelet?tab=readme-ov-file#platelet">Docs</a>
@@ -150,8 +150,10 @@
                     <h2>Works with existing HTML tools</h2>
                     <p>Bring your own HTML formatter and tooling.</p>
                 </div>
-                <pre><code class="language-html">&lt;ul v-if="list"&gt;
-    &lt;li v-for="item in list"&gt;{{ item }}&lt;/li&gt;
+                <pre><code class="language-html">&lt;ul pl-if="list"&gt;
+    &lt;li pl-for="item in list"&gt;
+      {{ item }}
+    &lt;/li&gt;
 &lt;/ul&gt;</code></pre>
             </article>
             <article>
@@ -160,6 +162,12 @@
                     <p>Support for &lt;slot&gt; & importing templates out of the box.</p>
                 </div>
                 <pre><code class="language-html">&lt;!-- index.html --&gt;
+&lt;template
+  pl-src="button.html"
+  pl-data='{ "action": "/submit" }'
+&gt;
+    &lt;b&gt;Approve&lt;b&gt; changes
+&lt;/template&gt;
 </code></pre>
             </article>
             <article>
