@@ -14,6 +14,9 @@
         <link media="screen and (prefers-color-scheme: dark)" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/tokyo-night-dark.min.css" />
         <link media="(prefers-color-scheme: light)" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/github.min.css" />
         <style>
+            * {
+                box-sizing: border-box;
+            }
             :root {
                 --primary: red;
                 --secondary: grey;
@@ -28,7 +31,7 @@
                     linear-gradient(90deg, var(--bg-accent) var(--bg-gap), transparent var(--bg-gap), transparent calc(2rem - var(--bg-gap))) 0px 0px / 2rem 2rem,
                     linear-gradient(0deg, var(--bg-accent) var(--bg-gap), transparent var(--bg-gap), transparent calc(2rem - var(--bg-gap))) 0px 0px / 2rem 2rem,
                     white;
-                background-position: 50vw 0;
+                background-position: calc(50vw + -1px) 1px;
             }
 
             h1,
@@ -70,7 +73,7 @@
 
             article {
                 display: flex;
-                outline: 2px solid red;
+                border: 1px solid var(--bg-accent);
                 background: white;
                 margin-bottom: 2rem;
                 padding: 1rem;
