@@ -196,20 +196,17 @@ fn unary_expression(input: &mut &str) -> PResult<Expression> {
 }
 
 fn indexed_expression(input: &mut &str) -> PResult<Expression> {
-    let exp = dot_access_expression.parse_next(input)?;
-    if let Ok(index) =
-        preceded(ws, delimited('[', delimited(ws, expression, ws), ']')).parse_next(input)
-    {
-        return Ok(Expression::Indexed(Box::new((exp, index))));
-    } else {
-        return Ok(exp);
-    }
-}
-
-fn dot_access_expression(input: &mut &str) -> PResult<Expression> {
     let mut exp = primary_expression.parse_next(input)?;
-    while let Ok(index) = preceded((ws, '.', ws), identifier).parse_next(input) {
-        exp = Expression::Indexed(Box::new((exp, Expression::Str(index))));
+    while let Ok(index) = preceded(
+        ws,
+        alt((
+            delimited('[', delimited(ws, expression, ws), ']'),
+            preceded(('.', ws), identifier.map(Expression::Str)),
+        )),
+    )
+    .parse_next(input)
+    {
+        exp = Expression::Indexed(Box::new((exp, index)));
     }
     return Ok(exp);
 }
@@ -279,14 +276,13 @@ fn null<'s>(input: &mut &'s str) -> PResult<&'s str> {
 fn boolean(input: &mut &str) -> PResult<bool> {
     alt(("true".value(true), "false".value(false))).parse_next(input)
 }
-
 fn string(input: &mut &str) -> PResult<String> {
+    alt((single_string, double_string)).parse_next(input)
+}
+
+fn double_string(input: &mut &str) -> PResult<String> {
     preceded(
         '\"',
-        // `cut_err` transforms an `ErrMode::Backtrack(e)` to `ErrMode::Cut(e)`, signaling to
-        // combinators like  `alt` that they should not try other parsers. We were in the
-        // right branch (since we found the `"` character) but encountered an error when
-        // parsing the string
         cut_err(terminated(
             repeat(0.., character).fold(String::new, |mut string, c| {
                 string.push(c);
@@ -295,16 +291,22 @@ fn string(input: &mut &str) -> PResult<String> {
             '\"',
         )),
     )
-    // `context` lets you add a static string to errors to provide more information in the
-    // error chain (to indicate which parser had an error)
     .parse_next(input)
 }
 
-// fn multi_identifier(input: &mut &str) -> PResult<Vec<String>> {
-//     separated(1.., identifier, ".")
-//         // .map(|x: Vec<_>| x.iter().map(|s| s.to_string()).collect::<Vec<_>>())
-//         .parse_next(input)
-// }
+fn single_string(input: &mut &str) -> PResult<String> {
+    preceded(
+        '\'',
+        cut_err(terminated(
+            repeat(0.., character).fold(String::new, |mut string, c| {
+                string.push(c);
+                string
+            }),
+            '\'',
+        )),
+    )
+    .parse_next(input)
+}
 
 pub(crate) fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
     take_while(1.., ('a'..='z', 'A'..='Z', '_'))
@@ -315,7 +317,7 @@ pub(crate) fn identifier<'s>(input: &'s mut &str) -> PResult<String> {
 /// You can mix the above declarative parsing with an imperative style to handle more unique cases,
 /// like escaping
 fn character(input: &mut &str) -> PResult<char> {
-    let c = none_of('\"').parse_next(input)?;
+    let c = none_of(['\"', '\'']).parse_next(input)?;
     if c == '\\' {
         alt((
             any.verify_map(|c| {
@@ -789,6 +791,66 @@ mod test {
                         Expression::Num(2.into())
                     )))])
                 )]))
+            ))
+        )
+    }
+
+    #[test]
+    fn single_quote_strings() {
+        let input = r#"{'hello': 'worl' + "d"}"#;
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::Object(HashMap::from([(
+                    "hello".to_owned(),
+                    Expression::BinaryOperation(Box::new((
+                        Expression::Str("worl".into()),
+                        BinaryOperator::Add,
+                        Expression::Str("d".into()),
+                    )))
+                )]))
+            ))
+        )
+    }
+
+    #[test]
+    fn indexed_exp() {
+        let input = r#"data.people[0].age"#;
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::Indexed(Box::new((
+                    (Expression::Indexed(Box::new((
+                        Expression::Indexed(Box::new((
+                            Expression::Identifier("data".to_owned()),
+                            Expression::Str("people".to_owned())
+                        ))),
+                        Expression::Num(0.into())
+                    )))),
+                    Expression::Str("age".to_owned())
+                )))
+            ))
+        )
+    }
+    #[test]
+    fn indexed_exp_no_dots() {
+        let input = r#"data["people"][0]["age"]"#;
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::Indexed(Box::new((
+                    (Expression::Indexed(Box::new((
+                        Expression::Indexed(Box::new((
+                            Expression::Identifier("data".to_owned()),
+                            Expression::Str("people".to_owned())
+                        ))),
+                        Expression::Num(0.into())
+                    )))),
+                    Expression::Str("age".to_owned())
+                )))
             ))
         )
     }

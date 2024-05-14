@@ -88,8 +88,11 @@
                 article:nth-child(even) {
                     flex-direction: row-reverse;
                 }
-                article > * {
-                    width: 50%;
+                article pre {
+                    flex-grow: 1;
+                }
+                article div {
+                    flex-shrink: 1;
                 }
             }
 
