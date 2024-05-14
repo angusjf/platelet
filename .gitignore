@@ -1,4 +1,5 @@
 /target
+dist
 .DS_Store
-templates
+.prettierrc.json
 TODO.md

@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+    <head>
+        <title>platelet</title>
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <link href="https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+        <script async type="module">
+            import hljs from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/highlight.min.js";
+            // import html from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/html.min.js";
+            // hljs.registerLanguage("html", html);
+            hljs.highlightAll();
+        </script>
+        <link media="screen and (prefers-color-scheme: dark)" rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/tokyo-night-dark.min.css" />
+        <link media="(prefers-color-scheme: light)" rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/github.min.css" />
+        <style>
+            :root {
+                --primary: red;
+                --secondary: grey;
+                --light: white;
+                --light-bg: lightgrey;
+                --bg-accent: rgba(100, 100, 255, 1);
+                --bg: #bbf;
+
+                --bg-gap: 2px;
+                font-family: Overpass, system-ui, sans-serif;
+                background:
+                    linear-gradient(90deg, var(--bg-accent) var(--bg-gap), transparent var(--bg-gap), transparent calc(2rem - var(--bg-gap))) 0px 0px / 2rem 2rem,
+                    linear-gradient(0deg, var(--bg-accent) var(--bg-gap), transparent var(--bg-gap), transparent calc(2rem - var(--bg-gap))) 0px 0px / 2rem 2rem,
+                    white;
+                background-position: 50vw 0;
+            }
+
+            h1,
+            h2 {
+                font-style: italic;
+            }
+            h1 {
+                font-weight: 200;
+                font-size: 2.2rem;
+            }
+            h1 b {
+                font-weight: 900;
+            }
+            a {
+                color: inherit;
+            }
+            p {
+                font-size: 1.1rem;
+            }
+            pre {
+                font-size: 1rem;
+            }
+            body {
+                margin: 2rem auto;
+                padding: 0 2rem;
+                max-width: 60rem;
+            }
+            header {
+                display: flex;
+                gap: 1rem;
+                background: var(--light);
+            }
+            .title {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            article {
+                display: flex;
+                outline: 2px solid red;
+                background: white;
+                margin-bottom: 2rem;
+                padding: 1rem;
+                gap: 1rem;
+                justify-content: space-between;
+
+                flex-direction: column;
+            }
+            @media (min-width: 1000px) {
+                article {
+                    flex-direction: row;
+                    min-height: 18rem;
+                }
+                article:nth-child(even) {
+                    flex-direction: row-reverse;
+                }
+                article > * {
+                    width: 50%;
+                }
+            }
+
+            .actions {
+                display: flex;
+                gap: 1rem;
+            }
+            .button {
+                background-color: var(--secondary);
+                padding: 0.6rem 1rem 0.5rem;
+                color: var(--light);
+                font-size: 1.5rem;
+                display: inline-block;
+                text-decoration: none;
+            }
+            .button.primary {
+                background-color: var(--primary);
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <article>
+                <div>
+                    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+                        <ellipse cx="100" cy="100" fill="#ddd" rx="100" ry="100" />
+                        <ellipse cx="100" cy="100" fill="#eee" rx="75" ry="75" />
+                        <text fill="#000" font-family="Overpass, sans-serif" font-size="45" font-style="normal" font-weight="bold" text-anchor="middle" x="90" y="100" xml:space="preserve">^ &nbsp;_ &nbsp;^</text>
+                    </svg>
+                </div>
+                <div class="title">
+                    <h1><b>Platelet</b> is an <b>HTML-first</b> templating language.</h1>
+                    <p>Modern alternative to handlebars, Jinja etc</p>
+                    <div class="actions">
+                        <a class="button primary" href="/platelet/demo">Try it</a>
+                        <a class="button" href="https://github.com/angusjf/platelet?tab=readme-ov-file#platelet">Docs</a>
+                    </div>
+                </div>
+            </article>
+            <article>
+                <div>
+                    <h2>Simple and intuitive behaviour</h2>
+                    <p>Platelet uses a small superset of JSON for expressions and HTML attributes for rendering.</p>
+                </div>
+                <pre><code class="language-html">&lt;img ^src='article.img_url'&gt;
+&lt;div&gt;
+    &lt;h2&gt;
+        &lt;a ^href='article.link'&gt;{{title}}&lt;/a&gt;
+    &lt;/h2&gt;
+    &lt;div pl-html='summary'&gt;&lt;/div&gt;
+    &lt;date&gt;{{date}}&lt;/date&gt;
+&lt;/div&gt;</code></pre>
+            </article>
+            <article>
+                <div>
+                    <h2>Works with existing HTML tools</h2>
+                    <p>Bring your own HTML formatter and tooling.</p>
+                </div>
+                <pre><code class="language-html">&lt;ul v-if="list"&gt;
+    &lt;li v-for="item in list"&gt;{{ item }}&lt;/li&gt;
+&lt;/ul&gt;</code></pre>
+            </article>
+            <article>
+                <div>
+                    <h2>Break templates into small Components</h2>
+                    <p>Support for &lt;slot&gt; & importing templates out of the box.</p>
+                </div>
+                <pre><code class="language-html">&lt;!-- index.html --&gt;
+</code></pre>
+            </article>
+            <article>
+                <div>
+                    <h2>&lt;style&gt; & &lt;script&gt; de-duplication</h2>
+                    <p>Identical scripts and stylesheets are combined so you can co-locate your components, styles and behaviour.</p>
+                </div>
+                <pre><code class="language-html">&lt;!-- index.html --&gt;
+</code></pre>
+            </article>
+            <article>
+                <div>
+                    <h2>Works great with htmx & Alpine.js</h2>
+                    <p>Combine platelet for server side rendering with htmx and/or Alpine.js for interactivity.</p>
+                </div>
+                <pre><code class="language-html">&lt;!-- index.html --&gt;
+</code></pre>
+            </article>
+        </main>
+    </body>
+</html>
