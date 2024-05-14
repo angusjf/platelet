@@ -55,7 +55,18 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     (Value::String(n), Value::String(m)) => Ok(Value::String(n + &m)),
                     _ => Err(EvalError::TypeMismatch),
                 },
-                BinaryOperator::Subtract => todo!(),
+                BinaryOperator::Subtract => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let sum = n.as_i64().unwrap() - m.as_i64().unwrap();
+                            Ok(Value::Number(sum.into()))
+                        } else {
+                            let sum = n.as_f64().unwrap() - m.as_f64().unwrap();
+                            Ok(Value::Number(Number::from_f64(sum).unwrap()))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
                 BinaryOperator::Multiply => match (a, b) {
                     (Value::Number(n), Value::Number(m)) => {
                         if !n.is_f64() && !m.is_f64() {
@@ -68,8 +79,30 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     }
                     _ => Err(EvalError::TypeMismatch),
                 },
-                BinaryOperator::Divide => todo!(),
-                BinaryOperator::Modulo => todo!(),
+                BinaryOperator::Divide => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let sum = n.as_i64().unwrap() / m.as_i64().unwrap();
+                            Ok(Value::Number(sum.into()))
+                        } else {
+                            let sum = n.as_f64().unwrap() / m.as_f64().unwrap();
+                            Ok(Value::Number(Number::from_f64(sum).unwrap()))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
+                BinaryOperator::Modulo => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let sum = n.as_i64().unwrap() % m.as_i64().unwrap();
+                            Ok(Value::Number(sum.into()))
+                        } else {
+                            let sum = n.as_f64().unwrap() % m.as_f64().unwrap();
+                            Ok(Value::Number(Number::from_f64(sum).unwrap()))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
                 BinaryOperator::EqualTo => Ok(Value::Bool(are_equal(&a, &b))),
                 BinaryOperator::NotEqualTo => Ok(Value::Bool(!are_equal(&a, &b))),
                 BinaryOperator::GreaterThan => match (a, b) {
@@ -84,9 +117,42 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     }
                     _ => Err(EvalError::TypeMismatch),
                 },
-                BinaryOperator::GreterThanOrEqualTo => todo!(),
-                BinaryOperator::LessThan => todo!(),
-                BinaryOperator::LessThanOrEqualTo => todo!(),
+                BinaryOperator::GreterThanOrEqualTo => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let result = n.as_i64().unwrap() >= m.as_i64().unwrap();
+                            Ok(Value::Bool(result))
+                        } else {
+                            let result = n.as_f64().unwrap() >= m.as_f64().unwrap();
+                            Ok(Value::Bool(result))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
+                BinaryOperator::LessThan => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let result = n.as_i64().unwrap() < m.as_i64().unwrap();
+                            Ok(Value::Bool(result))
+                        } else {
+                            let result = n.as_f64().unwrap() < m.as_f64().unwrap();
+                            Ok(Value::Bool(result))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
+                BinaryOperator::LessThanOrEqualTo => match (a, b) {
+                    (Value::Number(n), Value::Number(m)) => {
+                        if !n.is_f64() && !m.is_f64() {
+                            let result = n.as_i64().unwrap() <= m.as_i64().unwrap();
+                            Ok(Value::Bool(result))
+                        } else {
+                            let result = n.as_f64().unwrap() <= m.as_f64().unwrap();
+                            Ok(Value::Bool(result))
+                        }
+                    }
+                    _ => Err(EvalError::TypeMismatch),
+                },
                 BinaryOperator::Or => Ok(Value::Bool(truthy(&a) || truthy(&b))),
                 BinaryOperator::And => Ok(Value::Bool(truthy(&a) && truthy(&b))),
             }
@@ -332,5 +398,29 @@ mod test {
         let mut exp = "\"id-\" + 123";
         let exp = expr(&mut exp).unwrap();
         assert_eq!(eval(&exp, &vars), Ok("id-123".into()));
+    }
+
+    #[test]
+    fn maths() {
+        let vars = Map::new().into();
+        let mut exp = "100 + 200 - 99 * 44 / 2";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok((-1878).into()));
+    }
+
+    #[test]
+    fn modulo() {
+        let vars = Map::new().into();
+        let mut exp = "101 % 17";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(16.into()));
+    }
+
+    #[test]
+    fn comparsons() {
+        let vars = Map::new().into();
+        let mut exp = "1 == 1 && 2 != 1 && 2 < 3 && 4 > 3 && 3 <= 3 && 4 >= 4 && 4 >= 0 && -1 <= 2";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(true.into()));
     }
 }
