@@ -43,7 +43,7 @@
         </main>
         <script type="module">
             import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
-            import init, { render } from "./pkg/platelet.js";
+            import init, { render } from "/platelet/pkg/platelet.js";
 
             const htmlEditor = new CodeFlask("#html-editor", {
                 language: "html",
@@ -72,9 +72,7 @@
 <p pl-else>wait ... there are no {{ n }} times tables</p>
 `,
             );
-            jsonEditor.updateCode(
-                JSON.stringify({ n: 7, language: "platelet" }, undefined, 4),
-            );
+            jsonEditor.updateCode(JSON.stringify({ n: 7, language: "platelet" }, undefined, 4));
             htmlOutput.updateCode(`loading...`);
 
             async function hookUp() {
