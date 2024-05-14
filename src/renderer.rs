@@ -179,22 +179,16 @@ where
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
                 let (_, exp) = &attrs_list[exp_index];
-                match expr(&mut exp.as_ref()) {
-                    Ok(exp) => match eval(&exp, vars) {
-                        Ok(v) => {
-                            let cond = truthy(&v);
-                            *next_neighbour_conditional = Some(cond);
-                            if !cond {
-                                return Cmd::DeleteMe;
-                            } else if name == "template" {
-                                return Cmd::ChildrenOnly;
-                            }
-                            attrs_list.remove(exp_index);
-                        }
-                        Err(_e) => todo!(),
-                    },
-                    Err(x) => panic!("{:?}", x),
+                let exp = expr(&mut exp.as_ref()).unwrap();
+                let v = eval(&exp, vars).unwrap();
+                let cond = truthy(&v);
+                *next_neighbour_conditional = Some(cond);
+                if !cond {
+                    return Cmd::DeleteMe;
+                } else if name == "template" {
+                    return Cmd::ChildrenOnly;
                 }
+                attrs_list.remove(exp_index);
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-else-if") {
@@ -204,21 +198,17 @@ where
                         *next_neighbour_conditional = Some(true);
                         return Cmd::DeleteMe;
                     }
-                    Some(false) => match expr(&mut exp.as_ref()) {
-                        Ok(exp) => match eval(&exp, vars) {
-                            Ok(v) => {
-                                let cond = truthy(&v);
-                                *next_neighbour_conditional = Some(cond);
-                                if !cond {
-                                    return Cmd::DeleteMe;
-                                }
-                                attrs_list.remove(exp_index);
-                            }
-                            Err(_e) => todo!(),
-                        },
-                        Err(_x) => todo!(),
-                    },
-                    None => todo!(),
+                    Some(false) => {
+                        let exp = expr(&mut exp.as_ref()).unwrap();
+                        let v = eval(&exp, vars).unwrap();
+                        let cond = truthy(&v);
+                        *next_neighbour_conditional = Some(cond);
+                        if !cond {
+                            return Cmd::DeleteMe;
+                        }
+                        attrs_list.remove(exp_index);
+                    }
+                    None => panic!("encountered a pl-else-if that didn't follow an if"),
                 }
             }
 
@@ -230,47 +220,41 @@ where
                     Some(false) => {
                         attrs_list.remove(index);
                     }
-                    None => todo!(),
+                    None => panic!(
+                        "encountered a pl-else that didn't immediately for a pl-if or pl-else-if"
+                    ),
                 }
             }
 
             if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
                 let (_, fl) = &attrs_list[fl_index];
 
-                match for_loop(&mut fl.as_ref()) {
-                    Ok(fl) => match for_loop_runner::for_loop_runner(&fl, vars) {
-                        Ok(contexts) => {
-                            attrs_list.remove(fl_index);
-                            return Cmd::Loop(contexts);
-                        }
-                        Err(_e) => todo!(),
-                    },
-                    Err(_x) => todo!(),
-                }
+                let fl = for_loop(&mut fl.as_ref()).unwrap();
+                let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
+                attrs_list.remove(fl_index);
+                return Cmd::Loop(contexts);
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                match expr(&mut exp.as_ref()) {
-                    Ok(exp) => match eval(&exp, vars) {
-                        Ok(Value::String(html)) => {
-                            let node = parse_html(html);
-                            if name == "template" {
-                                return Cmd::ReplaceMeWith(node);
-                            } else {
-                                attrs_list.remove(exp_index);
-                                children.clear();
-                                children.push(node);
-                                return Cmd::Nothing;
-                            }
+                let exp = expr(&mut exp.as_ref()).unwrap();
+                let exp = eval(&exp, vars).unwrap();
+                match exp {
+                    Value::String(html) => {
+                        let node = parse_html(html);
+                        if name == "template" {
+                            return Cmd::ReplaceMeWith(node);
+                        } else {
+                            attrs_list.remove(exp_index);
+                            children.clear();
+                            children.push(node);
+                            return Cmd::Nothing;
                         }
-                        Ok(_v) => {
-                            todo!()
-                        }
-                        Err(_e) => todo!(),
-                    },
-                    Err(_x) => todo!(),
+                    }
+                    _v => {
+                        panic!("pl-html expects a string");
+                    }
                 }
             }
 
@@ -285,18 +269,16 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                match expr(&mut exp.as_ref()) {
-                    Ok(exp) => match eval(&exp, vars) {
-                        Ok(Value::String(tag)) => {
-                            attrs_list.remove(exp_index);
-                            *name = tag;
-                        }
-                        Ok(_v) => {
-                            todo!()
-                        }
-                        Err(_e) => todo!(),
-                    },
-                    Err(_x) => todo!(),
+                let exp = expr(&mut exp.as_ref()).unwrap();
+                let v = eval(&exp, vars).unwrap();
+                match v {
+                    Value::String(tag) => {
+                        attrs_list.remove(exp_index);
+                        *name = tag;
+                    }
+                    _v => {
+                        panic!("pl-is expects a string")
+                    }
                 }
             }
 
