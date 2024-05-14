@@ -7,8 +7,6 @@
         <link href="https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
         <script async type="module">
             import hljs from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/highlight.min.js";
-            // import html from "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/es/languages/html.min.js";
-            // hljs.registerLanguage("html", html);
             hljs.highlightAll();
         </script>
         <link media="screen and (prefers-color-scheme: dark)" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/styles/tokyo-night-dark.min.css" />
@@ -148,7 +146,7 @@
             <article>
                 <div>
                     <h2>Works with existing HTML tools</h2>
-                    <p>Bring your own HTML formatter and tooling.</p>
+                    <p>Platelet uses HTML attributes for its syntax - so you can bring your own formatter and tooling.</p>
                 </div>
                 <pre><code class="language-html">&lt;ul pl-if="list"&gt;
     &lt;li pl-for="item in list"&gt;
@@ -159,7 +157,7 @@
             <article>
                 <div>
                     <h2>Break templates into small Components</h2>
-                    <p>Support for &lt;slot&gt; & importing templates out of the box.</p>
+                    <p>Support for named slots & importing templates out of the box.</p>
                 </div>
                 <pre><code class="language-html">&lt;!-- index.html --&gt;
 &lt;template
@@ -175,7 +173,10 @@
                     <h2>&lt;style&gt; & &lt;script&gt; de-duplication</h2>
                     <p>Identical scripts and stylesheets are combined so you can co-locate your components, styles and behaviour.</p>
                 </div>
-                <pre><code class="language-html">&lt;!-- index.html --&gt;
+                <pre><code class="language-html">
+
+                    &lt;script src="/custom-textarea.mjs"&gt;&lt;script&gt;
+                    &lt;custom-textarea pl-for=""&gt;&lt;/custom-textarea&gt;
 </code></pre>
             </article>
             <article>
