@@ -8,6 +8,7 @@ pub(crate) enum EvalError {
     BadArrayIndexError,
     ArrayOutOfBounds,
     UndefinedProperty,
+    UndefinedFunction(String),
     Undefined(String),
 }
 
@@ -157,7 +158,10 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                 BinaryOperator::And => Ok(Value::Bool(truthy(&a) && truthy(&b))),
             }
         }
-        Expression::FunctionCall(_) => todo!(),
+        Expression::FunctionCall(fn_call) => {
+            let (id, _arg) = fn_call.as_ref();
+            Err(EvalError::UndefinedFunction(id.clone()))
+        }
         Expression::UnaryOperation(un_op) => {
             let (UnaryOperator::Not, exp) = un_op.as_ref();
             let exp = eval(exp, vars)?;
