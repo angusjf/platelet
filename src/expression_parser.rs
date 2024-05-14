@@ -220,17 +220,17 @@ fn primary_expression(input: &mut &str) -> PResult<Expression> {
         number.map(Expression::Num),
         array.map(Expression::Array),
         object.map(Expression::Object),
+        function_call.map(Expression::FunctionCall),
         identifier.map(Expression::Identifier),
     ))
     .parse_next(input)
 }
 
-//     ascii_float.map(|f| {
-//         Number::from_f64(f)
-//             .expect("number should not be NaN or Infinite as this is not valid JSON")
-//     }),
-//     ascii::dec_uint::<_, u32, _>.map(Number::from),
-//     ascii::dec_int::<_, i32, _>.map(Number::from),
+fn function_call(input: &mut &str) -> PResult<Box<(String, Expression)>> {
+    separated_pair(identifier, ws, delimited(('(', ws), expression, (ws, ')')))
+        .map(|(id, arg)| Box::new((id, arg)))
+        .parse_next(input)
+}
 
 pub fn number(input: &mut &str) -> PResult<Number> {
     (|input: &mut &str| {
@@ -834,6 +834,7 @@ mod test {
             ))
         )
     }
+
     #[test]
     fn indexed_exp_no_dots() {
         let input = r#"data["people"][0]["age"]"#;
@@ -850,6 +851,24 @@ mod test {
                         Expression::Num(0.into())
                     )))),
                     Expression::Str("age".to_owned())
+                )))
+            ))
+        )
+    }
+
+    #[test]
+    fn function_call() {
+        let input = r#"format_money({"currency": "gbp", "value": 100})"#;
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok((
+                "",
+                Expression::FunctionCall(Box::new((
+                    "format_money".into(),
+                    Expression::Object(HashMap::from([
+                        ("currency".into(), Expression::Str("gbp".into())),
+                        ("value".into(), Expression::Num(100.into()))
+                    ]))
                 )))
             ))
         )
