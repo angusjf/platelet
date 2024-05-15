@@ -391,28 +391,6 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
             true
         }
     });
-
-    // let mut delete_me = vec![];
-    // let mut to_insert: HashMap<String, String> = HashMap::new();
-
-    // for (c_name, val) in attrs.clone() {
-    //
-    //         let name = name.to_owned();
-    //         delete_me.push(c_name.clone());
-    //
-    //
-    //
-    //
-    //     }
-    // }
-
-    // for name in delete_me.iter() {
-    //     attrs.remove(name).unwrap();
-    // }
-
-    // for (attr, v) in to_insert.drain() {
-    //     attrs.insert(attr, v);
-    // }
 }
 
 fn parse_html(html: String) -> Node {
@@ -909,5 +887,60 @@ mod render_test {
             },
         );
         assert_eq!(result, "<meta name='x' content='y'>");
+    }
+
+    #[test]
+    fn for_loop_array_index() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<hr pl-for="(x, i) in [1,2,3]" ^name="x" ^class="i">"#.into(),
+            },
+        );
+        assert_eq!(
+            result,
+            "<hr name='1' class='0'><hr name='2' class='1'><hr name='3' class='2'>"
+        );
+    }
+
+    #[test]
+    fn for_loop_kv() {
+        let vars = json!({"fields": {"first-name": "First Name", "last-name": "Last Name"}});
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: r#"<input pl-for="(k, v) in fields" ^name="k" ^placeholder="v">"#.into(),
+            },
+        );
+        assert_eq!(
+            result,
+            "<input name='first-name' placeholder='First Name'>\
+             <input name='last-name' placeholder='Last Name'>"
+        );
+    }
+
+    #[test]
+    fn for_loop_kvi() {
+        let vars = json!({"fields": {"first-name": "First Name", "last-name": "Last Name"}});
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data:
+                    r#"<input pl-for="(k, v, i) in fields" ^name="k + '-' + i" ^placeholder="v">"#
+                        .into(),
+            },
+        );
+        assert_eq!(
+            result,
+            "<input name='first-name-0' placeholder='First Name'>\
+             <input name='last-name-1' placeholder='Last Name'>"
+        );
     }
 }
