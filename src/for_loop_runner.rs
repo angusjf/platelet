@@ -48,8 +48,7 @@ pub(crate) fn for_loop_runner(
                     let (key_id, value_id) = ids;
                     Ok(vec
                         .iter()
-                        .enumerate()
-                        .map(|(index, (k, v))| {
+                        .map(|(k, v)| {
                             let mut obj = base_context.as_object().unwrap().clone();
                             obj.insert(key_id.clone(), k.clone().into());
                             obj.insert(value_id.clone(), v.clone());

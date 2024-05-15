@@ -232,7 +232,7 @@ fn function_call(input: &mut &str) -> PResult<Box<(String, Expression)>> {
         .parse_next(input)
 }
 
-pub fn number(input: &mut &str) -> PResult<Number> {
+pub(crate) fn number(input: &mut &str) -> PResult<Number> {
     (|input: &mut &str| {
         let s = recognize_float(input)?;
         categorize_num(s).ok_or_else(|| {
