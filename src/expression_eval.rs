@@ -54,6 +54,14 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     (Value::Number(n), Value::String(s)) => Ok(Value::String(n.to_string() + &s)),
                     (Value::String(s), Value::Number(n)) => Ok(Value::String(s + &n.to_string())),
                     (Value::String(n), Value::String(m)) => Ok(Value::String(n + &m)),
+                    (Value::Array(mut a), Value::Array(mut b)) => {
+                        a.append(&mut b);
+                        Ok(Value::Array(a))
+                    }
+                    (Value::Object(mut a), Value::Object(mut b)) => {
+                        a.append(&mut b);
+                        Ok(Value::Object(a))
+                    }
                     _ => Err(EvalError::TypeMismatch),
                 },
                 BinaryOperator::Subtract => match (a, b) {
@@ -225,7 +233,7 @@ pub(crate) fn truthy(v: &Value) -> bool {
 mod test {
     use super::*;
     use crate::expression_parser::expr;
-    use serde_json::{json, Map};
+    use serde_json::{json, map, Map};
 
     #[test]
     fn null() {
@@ -434,5 +442,45 @@ mod test {
         let mut exp = "1 == 1 && 2 != 1 && 2 < 3 && 4 > 3 && 3 <= 3 && 4 >= 4 && 4 >= 0 && -1 <= 2";
         let exp = expr(&mut exp).unwrap();
         assert_eq!(eval(&exp, &vars), Ok(true.into()));
+    }
+
+    #[test]
+    fn join_array() {
+        let vars = Map::new().into();
+        let mut exp = "[0, 1, 2] + [3, 4, 5]";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(
+            eval(&exp, &vars),
+            Ok(Value::Array(vec![
+                0.into(),
+                1.into(),
+                2.into(),
+                3.into(),
+                4.into(),
+                5.into()
+            ]))
+        );
+    }
+
+    #[test]
+    fn join_object() {
+        let vars = Map::new().into();
+        let mut exp = "{ 'a': 0, 'hello': 'world', 'nested': {'object': null, 'this': 'here'} } + { 'a': 2, 'nested': {'object': 1} }";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(
+            eval(&exp, &vars),
+            Ok(Value::Object(
+                vec![
+                    ("a".into(), 2.into()),
+                    ("hello".into(), "world".into()),
+                    (
+                        "nested".into(),
+                        Value::Object(vec![("object".into(), 1.into())].into_iter().collect())
+                    )
+                ]
+                .into_iter()
+                .collect()
+            ))
+        );
     }
 }

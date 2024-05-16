@@ -10,174 +10,21 @@ This repo contains a Rust library for rendering `platelet` templates.
 
 Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML.
 
-# Syntax
+# Examples
 
-| Syntax            | Example               |
-| ----------------- | --------------------- |
-| `pl-` directives  | `pl-if`, `pl-for` ... |
-| `^` attributes    | `^class`, `^name` ... |
-| `{{ ... }}` nodes | `{{ user.email }}`    |
-
-# Expressions
-
-| `{{ ... }}` nodes | `{{ user.email }}` |
-
-# Syntax
-
-## Text Nodes
-
-In an HTML text node, `{{variable}}` inserts a (sanitized) string.
+<details open>
+<summary>Simple example</summary>
 
 ```html
-<h1>Welcome back {{user.name}}!</h1>
+TODO
 ```
+
+</details>
 
 <details>
 <summary>
-**more details on text nodes**
+Advanced example
 </summary>
-
-If the variable is not defined then an error is returned.
-
-| Data type | Rendered as   |
-| --------- | ------------- |
-| Number    | A number      |
-| String    | A string      |
-| Boolean   | true or false |
-| Null      | blank         |
-| Array     | error         |
-| Object    | error         |
-
-</details>
-
-## HTML Attributes
-
-In an HTML attribute, prefixing the attribute with `^` allows you to set the value to a `platelet` expression.
-
-```html
-<a ^href='"/products/" + slug'></a>
-```
-
-If the expression is **falsy**, the attribute will not render.
-
-The `^class` attribute is a special case, as it also accepts a map.
-It can be used in combination with the regular `class` attribute.
-
-```html
-<div
-  class="static"
-  ^class="{ active: isActive, 'text-danger': hasError }"
-></div>
-```
-
-This will render:
-
-```html
-<div class="static active text-danger"></div>
-```
-
-When
-
-## `pl-` attributes
-
-HTML Attributes starting with a `pl-` are special. They are inspired by Vue's directives.
-
-| attribute    |
-| ------------ |
-| `pl-if`      |
-| `pl-else-if` |
-| `pl-else`    |
-| `pl-for`     |
-| `pl-html`    |
-| `pl-src`     |
-| `pl-data`    |
-| `pl-slot`    |
-| `pl-is`      |
-
-<details>
-<summary>Here's a detailed breakdown of what they do </summary>
-
-### Conditinals: `pl-if`, `pl-else-if`, `pl-else`
-
-`pl-if` will only render this element if the condition is truthy
-
-`pl-else-if`, used following a `pl-if`, will only render this element if the condition is truthy
-
-`pl-else`, used following a `pl-if` or `pl-else-if`, will render this element otherwise
-
-### `pl-for`
-
-render element multiple times
-
-allows 4 types of expression:
-
-```html
-<div pl-for="item in items">{{item.text}}</div>
-<div pl-for="(item, index) in items">...</div>
-<div pl-for="(value, key) in object">...</div>
-<div pl-for="(value, name, index) in object">...</div>
-```
-
-### `pl-html`
-
-set the innerHTML without sanitization
-
-to set the outerHTML without sanitization, apply this to a `<template>`
-
-### `pl-src`
-
-given a path as a string, renders the template at the path and replaces the element
-
-```html
-<slot pl-src="./sidebar.html" pl-data='{"username": data.username}'>
-  <p>Some text...</p>
-</slot>
-```
-
-### `pl-data`
-
-only makes sense when used with `pl-src`, pass json to the child
-any expression returning an object or list of objects, in which case objects are merged
-
-### `pl-slot`
-
-marks the component as a slot - one per document
-no value to be supplied
-
-### `pl-is`
-
-replace the rendered element's tag with this element, given an expression that returns a string
-
-</details>
-
-`<template>` elements have special meaning when `pl-` attributes are
-
-## Expressions
-
-On anything: `==`, `!=`, `&&`, `||`, `!`, `x ? y : z`
-
-On numbers and strings: `+` (addition or concatenation)
-
-On numbers: `-`, `*`, `/`, `%` (mod)
-
-On numbers: `>`, `<`, `>=`, `<=`
-
-On objects arrays and strings, indexing operator `a[b]`
-
-On objects, dot access: `{"name": "angus"}.name`
-
-On arrays: `len(z)`
-
-Expressions can be bracketed `(9 + 3) / 2 == 6`
-
-## Truthiness
-
-`false`, `[]`, `""`, `{}`, `null` are **falsy**.
-
-All other values are **truthy**.
-
-# Example
-
 Imagine a directory, `templates` containing these files:
 
 `templates/index.html`
@@ -186,16 +33,11 @@ Imagine a directory, `templates` containing these files:
 <!doctype html>
 <html>
   <head>
-    <title>{data.title}</title>
-    <style>
-      :root {
-        font-family: sans-serif;
-      }
-    </style>
+    <title>{{ title }}</title>
   </head>
   <body>
-    <h1>{data.title}</h1>
-    <slot pl-src="./blogpost.html" pl-for="b in blogposts" pl-data="b"></slot>
+    <template pl-for="b in blogposts" pl-src="./blogpost.html" ^blogpost="b">
+    </template>
   </body>
 </html>
 ```
@@ -204,12 +46,12 @@ Imagine a directory, `templates` containing these files:
 
 ```html
 <article>
-    <img src="{img_url}">
+    <img src="{blogpost.img_url}">
     <div>
         <h2>
-            <a href="{link}">{title}</a>
+            <a href="{blogpost.link}">{title}</a>
         <h2>
-        <slot pl-outer-html="summary"></slot>
+        <slot pl-outer-html="blogpost.summary"></slot>
         <date>{date}</date>
     </div>
 </article>
@@ -248,6 +90,8 @@ And the following JSON file:
 }
 ```
 
+</details>
+
 Running this script:
 
 ```bash
@@ -273,8 +117,175 @@ TODO
 ```
 <details>
 
-# Limitations
+# Reference
 
-`platelet` does not allow templating for CSS and JS files, other than the ability to insert
+| Syntax            | Example               | Details                    |
+| ----------------- | --------------------- | -------------------------- |
+| `pl-` directives  | `pl-if`, `pl-for` ... | [details](#pl--directives) |
+| `^` attributes    | `^class`, `^name` ... | [details](#^-attributes)   |
+| `{{ ... }}` nodes | `{{ user.email }}`    | [details](#text-nodes)     |
+| Expressions       | `1 + users[i].score`  | [details](#expressions)    |
 
-This is intentional as
+## `^` Attributes
+
+In an HTML attribute, prefixing the attribute with `^` allows you to set the value to a `platelet` expression.
+
+```html
+<a ^href='"/products/" + slug'></a>
+```
+
+If the expression is `false` or `null`, the attribute will not render.
+
+```html
+<div
+  class="static"
+  ^class="{ active: isActive, 'text-danger': hasError }"
+  ^name="null"
+></div>
+```
+
+This will render:
+
+```html
+<div class="static active text-danger"></div>
+```
+
+## `pl-` Directives
+
+HTML Attributes starting with a `pl-` are special. They are inspired by Vue's directives.
+
+| attribute    |
+| ------------ |
+| `pl-if`      |
+| `pl-else-if` |
+| `pl-else`    |
+| `pl-for`     |
+| `pl-html`    |
+| `pl-src`     |
+| `pl-data`    |
+| `pl-slot`    |
+| `pl-is`      |
+
+<details>
+<summary>Here's a detailed breakdown of what they do </summary>
+
+### Conditinals: `pl-if`, `pl-else-if`, `pl-else`
+
+`pl-if` will only render this element if the expression is truthy
+
+`pl-else-if`, used following a `pl-if`, will only render this element if the expression is truthy
+
+`pl-else`, used following a `pl-if` or `pl-else-if`, will render this element otherwise
+
+```html
+<button pl-if="stock >= 1">Add to cart</button>
+<button pl-else-if="stock > 0">Add to cart (1 item left!)</button>
+<button pl-else disabled>Out of stock</button>
+```
+
+If applied to a `<template>`, the template will be and the children rendered.
+
+### `pl-for`
+
+Render element multiple times.
+
+Allows 4 types of expression:
+
+```html
+<div pl-for="item in items">{{item.text}}</div>
+<div pl-for="(item, index) in items">...</div>
+<div pl-for="(value, key) in object">...</div>
+<div pl-for="(value, name, index) in object">...</div>
+```
+
+If applied to a `<template>`, the template will be removed and the children rendered.
+
+### `pl-html`
+
+Set the innerHTML (without sanitization) to the given expression.
+
+To set the outerHTML, apply this to a `<template>`.
+
+```html
+<p pl-html="markdown"></p>
+```
+
+```json
+{ "markdown": "<h1>Content from a CMS</h1>..." }
+```
+
+### `pl-src`
+
+Given a path as a string, renders the template at the path and replaces the element.
+
+```html
+<slot pl-src="./sidebar.html" ^username="data.username">
+  <p>Some text...</p>
+</slot>
+```
+
+The attributes set on the element (regular attributes or rendered `^` atributues) are used as the context for rendering the template.
+
+### `pl-slot`
+
+Marks the component as a slot.
+Option
+
+### `pl-is`
+
+Replace the rendered element's tag with this element, given an expression that returns a string
+
+```html
+<slot pl-is='i == 0 ? "h1" : "h2"'>{item}</slot>
+```
+
+</details>
+
+# Expressions
+
+All valid JSON values are valid `platelet` expressions. On top of this, single-quoted strings `'like this'` are allowed for convinience when working with HTML.
+
+## Operators
+
+On anything: `==`, `!=`, `&&`, `||`, `!`, `x ? y : z`
+
+On numbers: `+` (addition)
+On strings and arrays: `+` (concatenation)
+On objects: `+` (shallow merge, right hand side overriding)
+
+On numbers: `-`, `*`, `/`, `%` (mod)
+
+On numbers: `>`, `<`, `>=`, `<=`
+
+On objects arrays and strings, indexing operator `a[b]`
+
+On objects, dot access: `{"name": "angus"}.name`
+
+On arrays: `len(z)`
+
+Expressions can be bracketed `(9 + 3) / 2 == 6`
+
+# Truthiness
+
+`false`, `[]`, `""`, `{}`, `null` are **falsy**.
+
+All other values are **truthy**.
+
+# Text Nodes
+
+In an HTML text node, `{{variable}}` inserts a (sanitized) string.
+
+```html
+<h1>Welcome back {{user.name}}!</h1>
+```
+
+If the variable is not defined then an error is returned.
+
+| Data type | Rendered as   |
+| --------- | ------------- |
+| Number    | A number      |
+| String    | A string      |
+| Boolean   | true or false |
+| Null      | blank         |
+| Array     | error         |
+| Object    | error         |
