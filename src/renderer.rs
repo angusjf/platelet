@@ -13,12 +13,9 @@ pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> String;
 }
 
-enum Cmd {
+enum PostRenderOperation {
     Nothing,
-    DeleteMe,
-    Loop(Vec<Value>),
-    ReplaceMeWith(Node),
-    ChildrenOnly,
+    ReplaceMeWith(Vec<Node>),
 }
 
 fn render_elem<F>(
@@ -28,22 +25,22 @@ fn render_elem<F>(
     next_neighbour_conditional: &mut Option<bool>,
     filename: &PathBuf,
     filesystem: &F,
-) -> Cmd
+) -> PostRenderOperation
 where
     F: Filesystem,
 {
     match node {
-        Node::Doctype { .. } => return Cmd::Nothing,
+        Node::Doctype { .. } => return PostRenderOperation::Nothing,
         Node::Document { children } => {
             render_children(children, vars, filename, filesystem);
-            return Cmd::Nothing;
+            return PostRenderOperation::Nothing;
         }
-        Node::Comment { .. } => return Cmd::Nothing,
+        Node::Comment { .. } => return PostRenderOperation::Nothing,
         Node::Text { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
             Ok(content) => {
                 let content = content.to_string();
                 *t = content;
-                Cmd::Nothing
+                PostRenderOperation::Nothing
             }
             Err(e) => panic!("{:?}", e),
         },
@@ -53,10 +50,6 @@ where
             name,
             ..
         } => {
-            // if !(attrsList.re.contains_key("pl-if") || attrs.contains_key("pl-else-if")) {
-            //     *next_neighbour_conditional = None;
-            // }
-
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
                 let (_, exp) = &attrs_list[exp_index];
                 let exp = expr(&mut exp.as_ref()).unwrap();
@@ -64,9 +57,9 @@ where
                 let cond = truthy(&v);
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
-                    return Cmd::DeleteMe;
+                    return PostRenderOperation::ReplaceMeWith(vec![]);
                 } else if name == "template" {
-                    return Cmd::ChildrenOnly;
+                    return PostRenderOperation::ReplaceMeWith(children.to_owned());
                 }
                 attrs_list.remove(exp_index);
             }
@@ -76,7 +69,7 @@ where
                 match previous_conditional {
                     Some(true) => {
                         *next_neighbour_conditional = Some(true);
-                        return Cmd::DeleteMe;
+                        return PostRenderOperation::ReplaceMeWith(vec![]);
                     }
                     Some(false) => {
                         let exp = expr(&mut exp.as_ref()).unwrap();
@@ -84,7 +77,7 @@ where
                         let cond = truthy(&v);
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
-                            return Cmd::DeleteMe;
+                            return PostRenderOperation::ReplaceMeWith(vec![]);
                         }
                         attrs_list.remove(exp_index);
                     }
@@ -95,7 +88,7 @@ where
             if let Some(index) = attrs_list.iter().position(|(name, _)| name == "pl-else") {
                 match previous_conditional {
                     Some(true) => {
-                        return Cmd::DeleteMe;
+                        return PostRenderOperation::ReplaceMeWith(vec![]);
                     }
                     Some(false) => {
                         attrs_list.remove(index);
@@ -112,7 +105,14 @@ where
                 let fl = for_loop(&mut fl.as_ref()).unwrap();
                 let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
                 attrs_list.remove(fl_index);
-                return Cmd::Loop(contexts);
+
+                let mut repeats = vec![];
+                for ctx in contexts {
+                    let mut child = node.clone();
+                    render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem);
+                    repeats.push(child);
+                }
+                return PostRenderOperation::ReplaceMeWith(repeats);
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
@@ -124,12 +124,12 @@ where
                     Value::String(html) => {
                         let node = parse_html(html);
                         if name == "template" {
-                            return Cmd::ReplaceMeWith(node);
+                            return PostRenderOperation::ReplaceMeWith(vec![node]);
                         } else {
                             attrs_list.remove(exp_index);
                             children.clear();
                             children.push(node);
-                            return Cmd::Nothing;
+                            return PostRenderOperation::Nothing;
                         }
                     }
                     _v => {
@@ -143,7 +143,12 @@ where
 
                 let path = filename.parent().unwrap().join(src);
                 let rendered = render(vars, &path, filesystem);
-                return Cmd::ReplaceMeWith(rendered);
+                match rendered {
+                    Node::Document { children } => {
+                        return PostRenderOperation::ReplaceMeWith(children)
+                    }
+                    _ => panic!("I know that rendered only ever returns a document"),
+                }
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
@@ -166,7 +171,7 @@ where
 
             render_children(children, vars, filename, filesystem);
 
-            return Cmd::Nothing;
+            return PostRenderOperation::Nothing;
         }
     }
 }
@@ -182,48 +187,13 @@ where
     while i < children.len() {
         let child = children[i].borrow_mut();
         match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem) {
-            Cmd::DeleteMe => {
-                children.remove(i);
-            }
-            Cmd::Loop(contexts) => {
-                let child = children.remove(i);
-                for ctx in contexts {
-                    let mut child = child.clone();
-                    render_elem(
-                        &mut child,
-                        &ctx,
-                        &get_this,
-                        &mut set_this,
-                        filename,
-                        filesystem,
-                    );
-                    children.insert(i, child);
-                    i += 1;
-                }
-            }
-            Cmd::Nothing => {
+            PostRenderOperation::Nothing => {
                 i += 1;
             }
-            Cmd::ReplaceMeWith(node) => {
-                children[i] = node;
-                i += 1;
-            }
-            Cmd::ChildrenOnly => {
-                let child = children.remove(i);
-                let children_ = match child {
-                    Node::Element { children, .. } => children,
-                    _ => panic!(),
-                };
-                for mut child_ in children_ {
-                    render_elem(
-                        &mut child_,
-                        &vars,
-                        &get_this,
-                        &mut set_this,
-                        filename,
-                        filesystem,
-                    );
-                    children.insert(i, child_);
+            PostRenderOperation::ReplaceMeWith(nodes) => {
+                let _ = children.remove(i);
+                for node in nodes {
+                    children.insert(i, node);
                     i += 1;
                 }
             }
@@ -784,5 +754,22 @@ mod render_test {
             "<input name='first-name-0' placeholder='First Name'>\
              <input name='last-name-1' placeholder='Last Name'>"
         );
+    }
+
+    #[test]
+    fn for_loop_if_else_if() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: "<div pl-if='false'>A</div>\
+                      <div pl-for='x in [1,2,3]' pl-else-if='true'>B</div>\
+                      <div>C</div>"
+                    .into(),
+            },
+        );
+        assert_eq!(result, "<div>B</div><div>B</div><div>B</div><div>C</div>");
     }
 }

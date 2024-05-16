@@ -2,23 +2,25 @@
 
 WARNING: This project is an unreleased work in progress!
 
-`platelet` is a tiny HTML-first templating library.
+`platelet` is an HTML-first templating language.
 
-It sits somewhere between the simplitcity of 'moustache' templates and JSX/frontend framework templating libraries.
+This repo contains a Rust library for rendering `platelet` templates.
 
-Notable features:
+# Why platelet?
 
-- HTML specific
-  - All logic is done with HTML attributes
-  - Why? The templates are valid HTML, which means you can bring your own formatters & tooling
-- JSON-based
-  - Why? Keeps templates portable
-- Support for importing templates
-  - Why? Everyone loves components
-- Script and stylesheet de-duplicicating
-  - Why? Allows for co-location of styles, scripts and templates, even when the templates are rendered more than once
+Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML.
 
-The philosophy of platelet is that rendering logic
+# Syntax
+
+| Syntax            | Example               |
+| ----------------- | --------------------- |
+| `pl-` directives  | `pl-if`, `pl-for` ... |
+| `^` attributes    | `^class`, `^name` ... |
+| `{{ ... }}` nodes | `{{ user.email }}`    |
+
+# Expressions
+
+| `{{ ... }}` nodes | `{{ user.email }}` |
 
 # Syntax
 
