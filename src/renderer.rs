@@ -107,10 +107,20 @@ where
                 attrs_list.remove(fl_index);
 
                 let mut repeats = vec![];
-                for ctx in contexts {
-                    let mut child = node.clone();
-                    render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem);
-                    repeats.push(child);
+                if name == "template" {
+                    for ctx in contexts {
+                        for child in children.clone() {
+                            let mut child = child.clone();
+                            render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem);
+                            repeats.push(child);
+                        }
+                    }
+                } else {
+                    for ctx in contexts {
+                        let mut copy = node.clone();
+                        render_elem(&mut copy, &ctx, &None, &mut None, filename, filesystem);
+                        repeats.push(copy);
+                    }
                 }
                 return PostRenderOperation::ReplaceMeWith(repeats);
             }
@@ -147,7 +157,7 @@ where
                     Node::Document { children } => {
                         return PostRenderOperation::ReplaceMeWith(children)
                     }
-                    _ => panic!("I know that rendered only ever returns a document"),
+                    _ => panic!("I know that render only ever returns a document"),
                 }
             }
 
@@ -506,7 +516,6 @@ mod render_test {
     }
 
     #[test]
-    #[ignore]
     fn pl_for_template() {
         let vars = Map::new().into();
 
