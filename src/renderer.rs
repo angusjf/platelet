@@ -1,3 +1,4 @@
+use core::fmt;
 use serde_json::Value;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
@@ -19,6 +20,17 @@ enum PostRenderOperation {
     ReplaceMeWith(Vec<Node>),
 }
 
+#[derive(Debug)]
+pub enum RenderError {}
+
+impl fmt::Display for RenderError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            _ => write!(f, "({}, {})", 1, 1),
+        }
+    }
+}
+
 fn render_elem<F>(
     node: &mut Node,
     vars: &Value,
@@ -26,22 +38,22 @@ fn render_elem<F>(
     next_neighbour_conditional: &mut Option<bool>,
     filename: &PathBuf,
     filesystem: &F,
-) -> PostRenderOperation
+) -> Result<PostRenderOperation, RenderError>
 where
     F: Filesystem,
 {
     match node {
-        Node::Doctype { .. } => return PostRenderOperation::Nothing,
+        Node::Doctype { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Document { children } => {
-            render_children(children, vars, filename, filesystem);
-            return PostRenderOperation::Nothing;
+            render_children(children, vars, filename, filesystem)?;
+            return Ok(PostRenderOperation::Nothing);
         }
-        Node::Comment { .. } => return PostRenderOperation::Nothing,
+        Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Text { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
             Ok(content) => {
                 let content = content.to_string();
                 *t = content;
-                PostRenderOperation::Nothing
+                Ok(PostRenderOperation::Nothing)
             }
             Err(e) => panic!("{:?}", e),
         },
@@ -58,9 +70,9 @@ where
                 let cond = truthy(&v);
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
-                    return PostRenderOperation::ReplaceMeWith(vec![]);
+                    return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                 } else if name == "template" {
-                    return PostRenderOperation::ReplaceMeWith(children.to_owned());
+                    return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
                 }
                 attrs_list.remove(exp_index);
             }
@@ -70,7 +82,7 @@ where
                 match previous_conditional {
                     Some(true) => {
                         *next_neighbour_conditional = Some(true);
-                        return PostRenderOperation::ReplaceMeWith(vec![]);
+                        return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
                         let exp = expr(&mut exp.as_ref()).unwrap();
@@ -78,7 +90,7 @@ where
                         let cond = truthy(&v);
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
-                            return PostRenderOperation::ReplaceMeWith(vec![]);
+                            return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                         }
                         attrs_list.remove(exp_index);
                     }
@@ -89,7 +101,7 @@ where
             if let Some(index) = attrs_list.iter().position(|(name, _)| name == "pl-else") {
                 match previous_conditional {
                     Some(true) => {
-                        return PostRenderOperation::ReplaceMeWith(vec![]);
+                        return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
                         attrs_list.remove(index);
@@ -112,18 +124,18 @@ where
                     for ctx in contexts {
                         for child in children.clone() {
                             let mut child = child.clone();
-                            render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem);
+                            render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem)?;
                             repeats.push(child);
                         }
                     }
                 } else {
                     for ctx in contexts {
                         let mut copy = node.clone();
-                        render_elem(&mut copy, &ctx, &None, &mut None, filename, filesystem);
+                        render_elem(&mut copy, &ctx, &None, &mut None, filename, filesystem)?;
                         repeats.push(copy);
                     }
                 }
-                return PostRenderOperation::ReplaceMeWith(repeats);
+                return Ok(PostRenderOperation::ReplaceMeWith(repeats));
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
@@ -135,12 +147,12 @@ where
                     Value::String(html) => {
                         let node = parse_html(html);
                         if name == "template" {
-                            return PostRenderOperation::ReplaceMeWith(vec![node]);
+                            return Ok(PostRenderOperation::ReplaceMeWith(vec![node]));
                         } else {
                             attrs_list.remove(exp_index);
                             children.clear();
                             children.push(node);
-                            return PostRenderOperation::Nothing;
+                            return Ok(PostRenderOperation::Nothing);
                         }
                     }
                     _v => {
@@ -153,10 +165,10 @@ where
                 let (_, src) = &attrs_list[src_index];
 
                 let path = filename.parent().unwrap().join(src);
-                let rendered = render(vars, &path, filesystem);
+                let rendered = render(vars, &path, filesystem)?;
                 match rendered {
                     Node::Document { children } => {
-                        return PostRenderOperation::ReplaceMeWith(children)
+                        return Ok(PostRenderOperation::ReplaceMeWith(children))
                     }
                     _ => panic!("I know that render only ever returns a document"),
                 }
@@ -180,14 +192,19 @@ where
 
             modify_attrs(attrs_list, vars);
 
-            render_children(children, vars, filename, filesystem);
+            render_children(children, vars, filename, filesystem)?;
 
-            return PostRenderOperation::Nothing;
+            return Ok(PostRenderOperation::Nothing);
         }
     }
 }
 
-fn render_children<F>(children: &mut Vec<Node>, vars: &Value, filename: &PathBuf, filesystem: &F)
+fn render_children<F>(
+    children: &mut Vec<Node>,
+    vars: &Value,
+    filename: &PathBuf,
+    filesystem: &F,
+) -> Result<(), RenderError>
 where
     F: Filesystem,
 {
@@ -197,7 +214,7 @@ where
     let mut set_this = None;
     while i < children.len() {
         let child = children[i].borrow_mut();
-        match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem) {
+        match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem)? {
             PostRenderOperation::Nothing => {
                 i += 1;
             }
@@ -211,6 +228,8 @@ where
         };
         get_this = set_this;
     }
+
+    Ok(())
 }
 
 fn attrify(val: &Value) -> Option<String> {
@@ -254,7 +273,7 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
     });
 }
 
-fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Node
+fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Result<Node, RenderError>
 where
     F: Filesystem,
 {
@@ -262,18 +281,23 @@ where
 
     let mut node = parse_html(html);
 
-    render_elem(&mut node, vars, &None, &mut None, filename, filesystem);
-    node
+    render_elem(&mut node, vars, &None, &mut None, filename, filesystem)?;
+
+    Ok(node)
 }
 
-pub fn render_to_string<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> String
+pub fn render_to_string<F>(
+    vars: &Value,
+    filename: &PathBuf,
+    filesystem: &F,
+) -> Result<String, RenderError>
 where
     F: Filesystem,
 {
-    render(vars, filename, filesystem).to_string()
+    render(vars, filename, filesystem).map(|x| x.to_string())
 }
 
-pub fn render_string(vars: &Value, html: String) -> String {
+pub fn render_string(vars: &Value, html: String) -> Result<String, RenderError> {
     render_to_string(&vars, &PathBuf::new(), &MockSingleFile { data: html })
 }
 
@@ -317,7 +341,7 @@ mod render_test {
                 data: "<h1>nothing here</h1>".into(),
             },
         );
-        assert_eq!(result, "<h1>nothing here</h1>");
+        assert_eq!(result.unwrap(), "<h1>nothing here</h1>");
     }
 
     #[test]
@@ -333,7 +357,7 @@ mod render_test {
             },
         );
         assert_eq!(
-            result,
+            result.unwrap(),
             "<!DOCTYPE html><html><head><title>a</title></head><body></body></html>"
         );
     }
@@ -349,7 +373,7 @@ mod render_test {
                 data: "<h1>{{hello}}</h1>".into(),
             },
         );
-        assert_eq!(result, "<h1>world</h1>");
+        assert_eq!(result.unwrap(), "<h1>world</h1>");
     }
 
     #[test]
@@ -363,7 +387,7 @@ mod render_test {
                 data: "<h1>Dear {{user.firstname}} {{user.lastname}},</h1>".into(),
             },
         );
-        assert_eq!(result, "<h1>Dear Yuri Gagarin,</h1>");
+        assert_eq!(result.unwrap(), "<h1>Dear Yuri Gagarin,</h1>");
     }
 
     #[test]
@@ -377,7 +401,7 @@ mod render_test {
                 data: "<h1>{{countries[0]}} {{ 1 + 2 }}</h1>".into(),
             },
         );
-        assert_eq!(result, "<h1>portugal 3</h1>");
+        assert_eq!(result.unwrap(), "<h1>portugal 3</h1>");
     }
 
     #[test]
@@ -394,7 +418,7 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<p>this</p><p>also this</p>");
+        assert_eq!(result.unwrap(), "<p>this</p><p>also this</p>");
     }
 
     #[test]
@@ -411,7 +435,7 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<p>this</p><p>also this</p>");
+        assert_eq!(result.unwrap(), "<p>this</p><p>also this</p>");
     }
 
     #[test]
@@ -428,7 +452,7 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<p>this</p>");
+        assert_eq!(result.unwrap(), "<p>this</p>");
     }
 
     #[test]
@@ -442,7 +466,7 @@ mod render_test {
                 data: "<p pl-is='header ? \"h1\" : \"h2\"'>this</p>".into(),
             },
         );
-        assert_eq!(result, "<h1>this</h1>");
+        assert_eq!(result.unwrap(), "<h1>this</h1>");
     }
 
     #[test]
@@ -456,7 +480,7 @@ mod render_test {
                 data: "<article pl-html='content'>something that used to be here</article>".into(),
             },
         );
-        assert_eq!(result, "<article><p>hello world</p></article>");
+        assert_eq!(result.unwrap(), "<article><p>hello world</p></article>");
     }
 
     #[test]
@@ -470,7 +494,10 @@ mod render_test {
                 data: "<article pl-html='content'>something that used to be here</article>".into(),
             },
         );
-        assert_eq!(result, "<article><p>hello {{mistake}} world</p></article>");
+        assert_eq!(
+            result.unwrap(),
+            "<article><p>hello {{mistake}} world</p></article>"
+        );
     }
 
     #[test]
@@ -485,7 +512,7 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<p>hello world</p>");
+        assert_eq!(result.unwrap(), "<p>hello world</p>");
     }
 
     #[test]
@@ -499,7 +526,7 @@ mod render_test {
                 data: "<template><h1>hello</h1></template>".into(),
             },
         );
-        assert_eq!(result, "<template><h1>hello</h1></template>");
+        assert_eq!(result.unwrap(), "<template><h1>hello</h1></template>");
     }
 
     #[test]
@@ -513,7 +540,7 @@ mod render_test {
                 data: "<div><p pl-for='x in [1,2,3]'>{{x}}</p></div>".into(),
             },
         );
-        assert_eq!(result, "<div><p>1</p><p>2</p><p>3</p></div>");
+        assert_eq!(result.unwrap(), "<div><p>1</p><p>2</p><p>3</p></div>");
     }
 
     #[test]
@@ -527,7 +554,7 @@ mod render_test {
                 data: "<div><template pl-for='x in [1,2,3]'><p>{{x}}</p></template></div>".into(),
             },
         );
-        assert_eq!(result, "<div><p>1</p><p>2</p><p>3</p></div>");
+        assert_eq!(result.unwrap(), "<div><p>1</p><p>2</p><p>3</p></div>");
     }
 
     #[test]
@@ -541,7 +568,7 @@ mod render_test {
                 data: "<div><template pl-if='[1]'><p>hello</p><p>world</p></template></div>".into(),
             },
         );
-        assert_eq!(result, "<div><p>hello</p><p>world</p></div>");
+        assert_eq!(result.unwrap(), "<div><p>hello</p><p>world</p></div>");
     }
 
     #[test]
@@ -559,7 +586,7 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<div>B</div><div>B</div>");
+        assert_eq!(result.unwrap(), "<div>B</div><div>B</div>");
     }
 
     #[test]
@@ -573,7 +600,7 @@ mod render_test {
                 data: r#"<p pl-if="true">A</p><p pl-else>B</p>"#.into(),
             },
         );
-        assert_eq!(result, "<p>A</p>");
+        assert_eq!(result.unwrap(), "<p>A</p>");
     }
 
     #[test]
@@ -587,7 +614,7 @@ mod render_test {
                 data: r#"<p pl-if="false">A</p><p pl-else>B</p>"#.into(),
             },
         );
-        assert_eq!(result, "<p>B</p>");
+        assert_eq!(result.unwrap(), "<p>B</p>");
     }
 
     #[test]
@@ -607,7 +634,7 @@ mod render_test {
                 ]),
             },
         );
-        assert_eq!(result, "<article><p>hello world</p></article>");
+        assert_eq!(result.unwrap(), "<article><p>hello world</p></article>");
     }
 
     #[test]
@@ -621,7 +648,7 @@ mod render_test {
                 data: r#"<input ^value='"my" + " " + "name"'>"#.into(),
             },
         );
-        assert_eq!(result, "<input value='my name'>");
+        assert_eq!(result.unwrap(), "<input value='my name'>");
     }
 
     #[test]
@@ -635,7 +662,7 @@ mod render_test {
                 data: r#"<slot pl-html="x"></slot>"#.into(),
             },
         );
-        assert_eq!(result, "<slot><code>&lt;TAG&gt;</code></slot>");
+        assert_eq!(result.unwrap(), "<slot><code>&lt;TAG&gt;</code></slot>");
     }
 
     #[test]
@@ -649,7 +676,7 @@ mod render_test {
                 data: r#"<input ^disabled='false'>"#.into(),
             },
         );
-        assert_eq!(result, "<input>");
+        assert_eq!(result.unwrap(), "<input>");
     }
 
     #[test]
@@ -663,7 +690,7 @@ mod render_test {
                 data: r#"<button ^class='["warn", "error"]'></button>"#.into(),
             },
         );
-        assert_eq!(result, "<button class='warn error'></button>");
+        assert_eq!(result.unwrap(), "<button class='warn error'></button>");
     }
 
     #[test]
@@ -678,7 +705,7 @@ mod render_test {
             },
         );
         assert_eq!(
-            result,
+            result.unwrap(),
             "<button class='should-also-have should-have'></button>"
         );
     }
@@ -694,7 +721,7 @@ mod render_test {
                 data: r#"<!-- MAKE ART NOT SOFTWARE -->"#.into(),
             },
         );
-        assert_eq!(result, "<!-- MAKE ART NOT SOFTWARE -->");
+        assert_eq!(result.unwrap(), "<!-- MAKE ART NOT SOFTWARE -->");
     }
 
     #[test]
@@ -708,7 +735,7 @@ mod render_test {
                 data: r#"<meta ^disabled="false" name="x" ^content='"y"'>"#.into(),
             },
         );
-        assert_eq!(result, "<meta name='x' content='y'>");
+        assert_eq!(result.unwrap(), "<meta name='x' content='y'>");
     }
 
     #[test]
@@ -723,7 +750,7 @@ mod render_test {
             },
         );
         assert_eq!(
-            result,
+            result.unwrap(),
             "<hr name='1' class='0'><hr name='2' class='1'><hr name='3' class='2'>"
         );
     }
@@ -740,7 +767,7 @@ mod render_test {
             },
         );
         assert_eq!(
-            result,
+            result.unwrap(),
             "<input name='first-name' placeholder='First Name'>\
              <input name='last-name' placeholder='Last Name'>"
         );
@@ -760,7 +787,7 @@ mod render_test {
             },
         );
         assert_eq!(
-            result,
+            result.unwrap(),
             "<input name='first-name-0' placeholder='First Name'>\
              <input name='last-name-1' placeholder='Last Name'>"
         );
@@ -780,6 +807,9 @@ mod render_test {
                     .into(),
             },
         );
-        assert_eq!(result, "<div>B</div><div>B</div><div>B</div><div>C</div>");
+        assert_eq!(
+            result.unwrap(),
+            "<div>B</div><div>B</div><div>B</div><div>C</div>"
+        );
     }
 }

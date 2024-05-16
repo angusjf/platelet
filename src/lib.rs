@@ -1,3 +1,4 @@
+use renderer::RenderError;
 use serde_json::Value;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -12,12 +13,12 @@ pub mod renderer;
 mod text_node;
 
 #[wasm_bindgen]
-pub fn render(html: String, context: String) -> String {
+pub fn render(html: String, context: String) -> Result<String, String> {
     let context: Value = serde_json::from_str(&context).unwrap();
 
-    renderer::render_string(&context, html)
+    renderer::render_string(&context, html).map_err(|e| e.to_string())
 }
 
-pub fn render_string(html: String, context: &Value) -> String {
+pub fn render_string(html: String, context: &Value) -> Result<String, RenderError> {
     renderer::render_string(&context, html)
 }

@@ -35,5 +35,6 @@ fn main() {
             &filename.to_path_buf(),
             &RealFilesystem::RealFilesystem
         )
+        .unwrap()
     );
 }
