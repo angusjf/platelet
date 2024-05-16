@@ -1,11 +1,11 @@
 use serde_json::Value;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-mod deno_dom;
 mod expression_eval;
 mod expression_parser;
 mod for_loop_parser;
 mod for_loop_runner;
+mod html;
 mod html_parser;
 mod rcdom;
 pub mod renderer;

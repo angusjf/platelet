@@ -1,127 +1,22 @@
-use crate::deno_dom;
-use serde_json::Value;
+use crate::html::Node as N;
+use crate::rcdom::Node;
+use crate::rcdom::NodeData;
+pub use crate::rcdom::RcDom;
+use html5ever::driver::parse_document;
+use html5ever::driver::parse_fragment;
+use html5ever::driver::ParseOpts;
+use html5ever::tendril::stream::TendrilSink;
+use html5ever::tree_builder::TreeBuilderOpts;
+use html5ever::{namespace_url, ns};
+use markup5ever::Attribute;
+use markup5ever::{LocalName, QualName};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Node {
-    Text {
-        content: String,
-    },
-    Element {
-        name: String,
-        attrs: Vec<(String, String)>,
-        children: Vec<Node>,
-    },
-    Comment {
-        content: String,
-    },
-    Document {
-        children: Vec<Node>,
-    },
-    Doctype {
-        doctype: String,
-    },
-}
+/// credit to the deno-dom dev, https://github.com/b-fuze
+/// MIT Licence
 
-// type node = [NodeType, nodeName, attributes, node[]]
-//             | [NodeType, characterData]
-fn node_from_array(val: &Value) -> Node {
-    let val = val.as_array().unwrap();
-
-    let id = val[0].as_u64().unwrap();
-
-    match id {
-        0 => panic!("node id 0 is undefined"),
-        2 => panic!("node id 2 is for attributes"),
-        4 => panic!("unexpected CDATA section"),
-        7 => panic!("unexpected PROCESSING_INSTRUCTION_NODE section"),
-        9 => Node::Document {
-            children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
-        },
-        1 => Node::Element {
-            name: val[1].as_str().unwrap().to_owned(),
-            attrs: val[2]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|attr| {
-                    let attr = attr.as_array().unwrap();
-                    (
-                        attr[0].as_str().unwrap().to_owned(),
-                        attr[1].as_str().unwrap().to_owned(),
-                    )
-                })
-                .collect(),
-            children: val[3..].iter().map(|x| node_from_array(&x)).collect(),
-        },
-        10 => Node::Doctype {
-            doctype: val[1].as_str().unwrap().to_owned(),
-        },
-
-        3 => Node::Text {
-            content: val[1].as_str().unwrap().to_owned(),
-        },
-        8 => Node::Comment {
-            content: val[1].as_str().unwrap().to_owned(),
-        },
-        11 => panic!("unexpected DOCUMENT_FRAGMENT_NODE"),
-        5 | 6 | 12.. => panic!("node ids 5, 6 and above 12 are not in the spec"),
-    }
-}
-impl Node {
-    pub(crate) fn to_string(&self) -> String {
-        fn html_text_safe(s: &str) -> String {
-            s.replace('&', "&amp;")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;")
-            // .replace('"', "&quot;")
-            // .replace("'", "&#39;")
-            // .replace('/', "&#x2F;")
-            // .replace('`', "&#x60;")
-            // .replace('=', "&#x3D;")
-            //  TODO sort this mess
-        }
-        fn html_attr_safe(s: &str) -> String {
-            s.replace('"', "&quot;").replace("'", "&#39;")
-            // .replace('/', "&#x2F;")
-            // .replace('`', "&#x60;")
-            // .replace('=', "&#x3D;")
-            //  TODO sort this mess
-        }
-        match self {
-            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_text_safe(doctype)),
-            Node::Comment { content } => format!("<!--{}-->", html_text_safe(content)),
-            Node::Text { content } => html_text_safe(content),
-            Node::Element {
-                name,
-                attrs,
-                children,
-            } => {
-                let attrs_str = attrs
-                    .iter()
-                    .map(|(key, value)| format!(" {}='{}'", key, html_attr_safe(value)))
-                    .collect::<String>();
-
-                let children_str = children
-                    .iter()
-                    .map(|child| child.to_string())
-                    .collect::<String>();
-
-                match name.as_str() {
-                    "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link"
-                    | "meta" | "param" | "source" | "track" | "wbr" => {
-                        format!("<{}{}>", name, attrs_str)
-                    }
-                    _ => {
-                        format!("<{}{}>{}</{}>", name, attrs_str, children_str, name)
-                    }
-                }
-            }
-            Node::Document { children } => children.iter().map(|child| child.to_string()).collect(),
-        }
-    }
-}
-
-pub(crate) fn parse_html(html: String) -> Node {
+pub(crate) fn parse_html(html: String) -> N {
     let full_doc = {
         let html = html.to_lowercase();
         html.contains("<html")
@@ -130,29 +25,120 @@ pub(crate) fn parse_html(html: String) -> Node {
             || html.contains("<!DOCTYPE")
     };
 
-    let node = if full_doc {
-        deno_dom::parse(html)
-    } else {
-        deno_dom::parse_frag(html, "body".to_owned())
-    };
-    let node = serde_json::from_str(&node).unwrap();
-    let node = node_from_array(&node);
-
     if full_doc {
-        node
+        parse(html)
     } else {
-        match node {
-            Node::Document { ref children } => match &children[..] {
-                [Node::Element {
+        match parse_frag(html, "body".to_owned()) {
+            N::Document { ref children } => match &children[..] {
+                [N::Element {
                     ref name,
                     ref attrs,
                     children,
-                }] if name == "html" && attrs.is_empty() => Node::Document {
+                }] if name == "html" && attrs.is_empty() => N::Document {
                     children: children.clone(),
                 },
-                _ => node,
+                _ => panic!("!!!!!!!!"),
             },
-            _ => node,
+            _ => panic!("#"),
         }
     }
+}
+
+fn parse(html: String) -> N {
+    let sink: RcDom = Default::default();
+    let parser = parse_document(
+        sink,
+        ParseOpts {
+            tokenizer: Default::default(),
+            tree_builder: TreeBuilderOpts {
+                scripting_enabled: false,
+                ..Default::default()
+            },
+        },
+    );
+
+    let dom = parser.one(html);
+    nodeify_node(&dom.document)
+}
+
+fn parse_frag(html: String, context_local_name: String) -> N {
+    let sink: RcDom = Default::default();
+    let parser = parse_fragment(
+        sink,
+        Default::default(),
+        QualName::new(None, ns!(html), LocalName::from(context_local_name)),
+        vec![],
+    );
+
+    let dom = parser.one(html);
+    nodeify_node(&dom.document)
+}
+
+fn nodeify_node(dom: &Rc<Node>) -> N {
+    match dom.data {
+        NodeData::Document => {
+            let mut children = vec![];
+            for c in dom.children.borrow().iter() {
+                children.push(nodeify_node(c));
+            }
+            N::Document { children }
+        }
+
+        NodeData::Element {
+            ref name,
+            ref attrs,
+            ref template_contents,
+            ..
+        } => {
+            let name = name.local.to_string();
+
+            let attrs = nodify_attrs(attrs);
+
+            let mut children = vec![];
+
+            if let Some(contents) = template_contents {
+                children.push(nodeify_node(&contents));
+            } else {
+                for child in dom.children.borrow().iter() {
+                    children.push(nodeify_node(&child));
+                }
+            }
+
+            N::Element {
+                name,
+                attrs,
+                children,
+            }
+        }
+
+        NodeData::Text { ref contents } => N::Text {
+            content: contents.borrow().to_string(),
+        },
+
+        NodeData::Comment { ref contents } => N::Comment {
+            content: contents.to_string(),
+        },
+
+        NodeData::Doctype {
+            ref name,
+            public_id: _,
+            system_id: _,
+        } => N::Doctype {
+            doctype: name.to_string(),
+        },
+
+        _ => {
+            panic!();
+        }
+    }
+}
+
+fn nodify_attrs(data: &RefCell<Vec<Attribute>>) -> Vec<(String, String)> {
+    let mut attrs = vec![];
+
+    for attr in data.borrow().iter() {
+        attrs.push((attr.name.local.to_string(), attr.value.to_string()));
+    }
+
+    attrs
 }

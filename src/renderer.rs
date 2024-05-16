@@ -6,7 +6,8 @@ use crate::expression_eval::{eval, truthy};
 use crate::expression_parser::expr;
 use crate::for_loop_parser::for_loop;
 use crate::for_loop_runner;
-use crate::html_parser::{parse_html, Node};
+use crate::html::Node;
+use crate::html_parser::parse_html;
 use crate::text_node::render_text_node;
 
 pub trait Filesystem {

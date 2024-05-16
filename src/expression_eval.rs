@@ -233,7 +233,7 @@ pub(crate) fn truthy(v: &Value) -> bool {
 mod test {
     use super::*;
     use crate::expression_parser::expr;
-    use serde_json::{json, map, Map};
+    use serde_json::{json, Map};
 
     #[test]
     fn null() {
