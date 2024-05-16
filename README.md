@@ -1,4 +1,4 @@
-# platelet
+## platelet
 
 WARNING: This project is an unreleased work in progress!
 
@@ -6,25 +6,32 @@ WARNING: This project is an unreleased work in progress!
 
 This repo contains a Rust library for rendering `platelet` templates.
 
-# Why platelet?
+## Why platelet?
 
 Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML.
 
-# Examples
-
-<details open>
-<summary>Simple example</summary>
+## Examples
 
 ```html
-TODO
+<ul pl-if="n > 0">
+  <li pl-for="i in [1, 2, 3]">{{ i }} × {{ n }} = {{ i * n }}</li>
+</ul>
 ```
 
-</details>
+```json
+{ "n": 7 }
+```
 
-<details>
-<summary>
+```html
+<ul>
+  <li>1 × 7 = 7</li>
+  <li>2 × 7 = 14</li>
+  <li>3 × 7 = 21</li>
+</ul>
+```
+
 Advanced example
-</summary>
+
 Imagine a directory, `templates` containing these files:
 
 `templates/index.html`
@@ -46,13 +53,13 @@ Imagine a directory, `templates` containing these files:
 
 ```html
 <article>
-    <img src="{blogpost.img_url}">
+    <img ^src="blogpost.img_url">
     <div>
         <h2>
-            <a href="{blogpost.link}">{title}</a>
+            <a ^href="blogpost.link">{{b.title}}</a>
         <h2>
-        <slot pl-outer-html="blogpost.summary"></slot>
-        <date>{date}</date>
+        <template pl-html="blogpost.summary"></template>
+        <date>{{b.date}}</date>
     </div>
 </article>
 <style>
@@ -68,56 +75,27 @@ And the following JSON file:
 
 ```json
 {
-  "data": {
-    "title": "Angus' Blog",
-    "blogposts": [
-      {
-        "img_url": "...",
-        "link": "...",
-        "summary": "...",
-        "title": "...",
-        "date": "01/11/2025"
-      },
-      {
-        "img_url": "...",
-        "link": "...",
-        "summary": "...",
-        "title": "...",
-        "date": "01/11/2020"
-      }
-    ]
-  }
+  "title": "Angus' Blog",
+  "blogposts": [
+    {
+      "img_url": "...",
+      "link": "...",
+      "summary": "...",
+      "title": "...",
+      "date": "01/11/2025"
+    },
+    {
+      "img_url": "...",
+      "link": "...",
+      "summary": "...",
+      "title": "...",
+      "date": "01/11/2020"
+    }
+  ]
 }
 ```
 
-</details>
-
-Running this script:
-
-```bash
-cat variables.json | platelet templates/index.html
-```
-
-Or using the api:
-
-```rust
-let args: Value = ...;
-let template: &str = "...";
-Platelet::render(args, template)
-```
-
-Will produce a string output as expected.
-
-<details>
-<summary>
-Here's the output if you're interested
-</summary>
-```html
-TODO
-```
-<details>
-
-# Reference
+## Reference
 
 | Syntax            | Example               | Details                    |
 | ----------------- | --------------------- | -------------------------- |
@@ -162,12 +140,10 @@ HTML Attributes starting with a `pl-` are special. They are inspired by Vue's di
 | `pl-for`     |
 | `pl-html`    |
 | `pl-src`     |
-| `pl-data`    |
 | `pl-slot`    |
 | `pl-is`      |
 
-<details>
-<summary>Here's a detailed breakdown of what they do </summary>
+Here's a detailed breakdown of what they do
 
 ### Conditinals: `pl-if`, `pl-else-if`, `pl-else`
 
@@ -229,7 +205,11 @@ The attributes set on the element (regular attributes or rendered `^` atributues
 ### `pl-slot`
 
 Marks the component as a slot.
-Option
+Optional name.
+
+```html
+<slot pl-slot="left"></slot>
+```
 
 ### `pl-is`
 
@@ -239,9 +219,7 @@ Replace the rendered element's tag with this element, given an expression that r
 <slot pl-is='i == 0 ? "h1" : "h2"'>{item}</slot>
 ```
 
-</details>
-
-# Expressions
+## Expressions
 
 All valid JSON values are valid `platelet` expressions. On top of this, single-quoted strings `'like this'` are allowed for convinience when working with HTML.
 
@@ -265,13 +243,13 @@ On arrays: `len(z)`
 
 Expressions can be bracketed `(9 + 3) / 2 == 6`
 
-# Truthiness
+## Truthiness
 
 `false`, `[]`, `""`, `{}`, `null` are **falsy**.
 
 All other values are **truthy**.
 
-# Text Nodes
+## Text Nodes
 
 In an HTML text node, `{{variable}}` inserts a (sanitized) string.
 
