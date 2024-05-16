@@ -3,7 +3,7 @@ use serde_json::{Map, Number, Value};
 use crate::expression_parser::{BinaryOperator, Expression, UnaryOperator};
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum EvalError {
+pub enum EvalError {
     TypeMismatch,
     BadArrayIndexError,
     ArrayOutOfBounds,

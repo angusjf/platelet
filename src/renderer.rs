@@ -2,14 +2,15 @@ use core::fmt;
 use serde_json::Value;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
+use winnow::error::{ContextError, ParseError};
 
-use crate::expression_eval::{eval, truthy};
-use crate::expression_parser::expr;
+use crate::expression_eval::{eval, truthy, EvalError};
+use crate::expression_parser::{self, expr};
 use crate::for_loop_parser::for_loop;
-use crate::for_loop_runner;
 use crate::html::Node;
 use crate::html_parser::parse_html;
 use crate::text_node::render_text_node;
+use crate::{for_loop_runner, text_node};
 
 pub trait Filesystem {
     fn get_data_at_path(&self, path: &PathBuf) -> String;
@@ -21,12 +22,20 @@ enum PostRenderOperation {
 }
 
 #[derive(Debug)]
-pub enum RenderError {}
+pub enum RenderError {
+    IllegalDirective(String),
+    TextRender(text_node::RenderError),
+    Parser,
+    Eval(EvalError),
+}
 
 impl fmt::Display for RenderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            _ => write!(f, "({}, {})", 1, 1),
+            RenderError::IllegalDirective(e) => write!(f, "ILLEGAL DIRECTIVE: {}", e),
+            RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
+            RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
+            RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
         }
     }
 }
@@ -49,14 +58,12 @@ where
             return Ok(PostRenderOperation::Nothing);
         }
         Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
-        Node::Text { content: t, .. } => match render_text_node(t.as_ref(), &vars) {
-            Ok(content) => {
-                let content = content.to_string();
-                *t = content;
-                Ok(PostRenderOperation::Nothing)
-            }
-            Err(e) => panic!("{:?}", e),
-        },
+        Node::Text { content: t, .. } => {
+            let content = render_text_node(t.as_ref(), &vars).map_err(RenderError::TextRender)?;
+            let content = content.to_string();
+            *t = content;
+            Ok(PostRenderOperation::Nothing)
+        }
         Node::Element {
             attrs: attrs_list,
             children,
@@ -65,8 +72,8 @@ where
         } => {
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
                 let (_, exp) = &attrs_list[exp_index];
-                let exp = expr(&mut exp.as_ref()).unwrap();
-                let v = eval(&exp, vars).unwrap();
+                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
+                let v = eval(&exp, vars).map_err(RenderError::Eval)?;
                 let cond = truthy(&v);
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
@@ -85,8 +92,8 @@ where
                         return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
-                        let exp = expr(&mut exp.as_ref()).unwrap();
-                        let v = eval(&exp, vars).unwrap();
+                        let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
+                        let v = eval(&exp, vars).map_err(RenderError::Eval)?;
                         let cond = truthy(&v);
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
@@ -94,7 +101,11 @@ where
                         }
                         attrs_list.remove(exp_index);
                     }
-                    None => panic!("encountered a pl-else-if that didn't follow an if"),
+                    None => {
+                        return Err(RenderError::IllegalDirective(
+                            "encountered a pl-else-if that didn't follow an if".into(),
+                        ))
+                    }
                 }
             }
 
@@ -106,16 +117,17 @@ where
                     Some(false) => {
                         attrs_list.remove(index);
                     }
-                    None => panic!(
+                    None => return Err(RenderError::IllegalDirective(
                         "encountered a pl-else that didn't immediately for a pl-if or pl-else-if"
-                    ),
+                            .into(),
+                    )),
                 }
             }
 
             if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
                 let (_, fl) = &attrs_list[fl_index];
 
-                let fl = for_loop(&mut fl.as_ref()).unwrap();
+                let fl = for_loop(&mut fl.as_ref()).map_err(|_| RenderError::Parser)?;
                 let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
                 attrs_list.remove(fl_index);
 
@@ -141,8 +153,8 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let exp = expr(&mut exp.as_ref()).unwrap();
-                let exp = eval(&exp, vars).unwrap();
+                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
+                let exp = eval(&exp, vars).map_err(RenderError::Eval)?;
                 match exp {
                     Value::String(html) => {
                         let node = parse_html(html);
@@ -156,7 +168,9 @@ where
                         }
                     }
                     _v => {
-                        panic!("pl-html expects a string");
+                        return Err(RenderError::IllegalDirective(
+                            "pl-html expects a string".into(),
+                        ))
                     }
                 }
             }
@@ -177,20 +191,22 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let exp = expr(&mut exp.as_ref()).unwrap();
-                let v = eval(&exp, vars).unwrap();
+                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
+                let v = eval(&exp, vars).map_err(RenderError::Eval)?;
                 match v {
                     Value::String(tag) => {
                         attrs_list.remove(exp_index);
                         *name = tag;
                     }
                     _v => {
-                        panic!("pl-is expects a string")
+                        return Err(RenderError::IllegalDirective(
+                            "pl-is expects a string".into(),
+                        ))
                     }
                 }
             }
 
-            modify_attrs(attrs_list, vars);
+            modify_attrs(attrs_list, vars)?;
 
             render_children(children, vars, filename, filesystem)?;
 
@@ -254,7 +270,7 @@ fn attrify(val: &Value) -> Option<String> {
     }
 }
 
-fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
+fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), RenderError> {
     attrs.retain_mut(|(name_original, val)| {
         if let Some(name) = name_original.strip_prefix('^') {
             let exp = expr(&mut val.as_ref()).unwrap();
@@ -271,6 +287,8 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) {
             true
         }
     });
+
+    Ok(())
 }
 
 fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Result<Node, RenderError>

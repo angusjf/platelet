@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(crate) enum RenderError {
+pub enum RenderError {
     EvalError(EvalError),
     ParserError,
     RenderError,
