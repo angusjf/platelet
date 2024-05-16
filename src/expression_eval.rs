@@ -198,7 +198,16 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
 }
 
 fn are_equal(a: &Value, b: &Value) -> bool {
-    a == b
+    match (a, b) {
+        (Value::Number(a), Value::Number(b)) => {
+            if a.is_f64() && b.is_f64() {
+                a.as_f64().unwrap() == b.as_f64().unwrap()
+            } else {
+                a.as_f64().unwrap() as i64 == b.as_f64().unwrap() as i64
+            }
+        }
+        _ => a == b,
+    }
 }
 
 pub(crate) fn truthy(v: &Value) -> bool {
@@ -251,7 +260,6 @@ mod test {
     }
 
     #[test]
-    #[ignore = "fix this later"]
     fn equality() {
         let mut n = "99.0 == 99";
         let vars = Map::new().into();

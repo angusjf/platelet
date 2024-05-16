@@ -417,7 +417,6 @@ mod render_test {
     }
 
     #[test]
-    #[ignore]
     fn pl_else_if_true() {
         let vars = Map::new().into();
 
@@ -566,7 +565,6 @@ mod render_test {
     }
 
     #[test]
-    #[ignore]
     fn loop_with_if_else() {
         let vars = Map::new().into();
 
@@ -574,10 +572,10 @@ mod render_test {
             &vars,
             &PathBuf::new(),
             &MockSingleFile {
-                data: r#"<div pl-if='"A" == "Z"'>A</div>\
-    <div pl-for="_ in [1,3]" v-else-if='"A" == "A"'>B</div>\
-    <div pl-else-if='"A" == "A"'>C</div>\
-    <div pl-else>Not A/B/C</div>"#
+                data: "<div pl-if='\"A\" == \"Z\"'>A</div>\
+                         <div pl-for='_ in [1,3]' pl-else-if='\"A\" == \"A\"'>B</div>\
+                         <div pl-else-if='\"A\" == \"A\"'>C</div>\
+                         <div pl-else>Not A/B/C</div>"
                     .into(),
             },
         );
