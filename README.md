@@ -112,30 +112,6 @@ And the following JSON file:
 | `{{ ... }}` nodes | `{{ user.email }}`    | [→](#text-nodes)     |
 | Expressions       | `1 + users[i].score`  | [→](#expressions)    |
 
-## `^` Attributes
-
-In an HTML attribute, prefixing the attribute with `^` allows you to set the value to a `platelet` expression.
-
-```html
-<a ^href='"/products/" + slug'></a>
-```
-
-If the expression is `false` or `null`, the attribute will not render.
-
-```html
-<div
-  class="static"
-  ^class="{ active: isActive, 'text-danger': hasError }"
-  ^name="null"
-></div>
-```
-
-This will render:
-
-```html
-<div class="static active text-danger"></div>
-```
-
 ## `pl-` Directives
 
 HTML Attributes starting with a `pl-` are special. They are inspired by Vue's directives.
@@ -225,6 +201,30 @@ Replace the rendered element's tag with this element, given an expression that r
 
 ```html
 <slot pl-is='i == 0 ? "h1" : "h2"'>{item}</slot>
+```
+
+## `^` Attributes
+
+In an HTML attribute, prefixing the attribute with `^` allows you to set the value to a `platelet` expression.
+
+```html
+<a ^href='"/products/" + slug'></a>
+```
+
+If the expression is `false` or `null`, the attribute will not render.
+
+```html
+<div
+  class="static"
+  ^class="{ active: isActive, 'text-danger': hasError }"
+  ^name="null"
+></div>
+```
+
+This will render:
+
+```html
+<div class="static active text-danger"></div>
 ```
 
 ## Text Nodes
