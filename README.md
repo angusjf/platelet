@@ -1,6 +1,4 @@
-## platelet
-
-WARNING: This project is an unreleased work in progress!
+# platelet
 
 `platelet` is an HTML-first templating language.
 
@@ -10,17 +8,23 @@ This repo contains a Rust library for rendering `platelet` templates.
 
 Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML.
 
-## Examples
+This means you can use your own HTML formatters and tooling.
 
+## Example
+
+###### Template
 ```html
 <ul pl-if="n > 0">
   <li pl-for="i in [1, 2, 3]">{{ i }} × {{ n }} = {{ i * n }}</li>
 </ul>
 ```
 
+###### Context (input)
 ```json
 { "n": 7 }
 ```
+
+###### Output
 
 ```html
 <ul>
@@ -30,7 +34,10 @@ Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languag
 </ul>
 ```
 
-Advanced example
+<details>
+<summary>More examples</summary>
+
+### Advanced example
 
 Imagine a directory, `templates` containing these files:
 
@@ -94,15 +101,16 @@ And the following JSON file:
   ]
 }
 ```
+</details>
 
 ## Reference
 
 | Syntax            | Example               | Details                    |
 | ----------------- | --------------------- | -------------------------- |
-| `pl-` directives  | `pl-if`, `pl-for` ... | [details](#pl--directives) |
-| `^` attributes    | `^class`, `^name` ... | [details](#^-attributes)   |
-| `{{ ... }}` nodes | `{{ user.email }}`    | [details](#text-nodes)     |
-| Expressions       | `1 + users[i].score`  | [details](#expressions)    |
+| `pl-` directives  | `pl-if`, `pl-for` ... | [→](#pl--directives) |
+| `^` attributes    | `^class`, `^name` ... | [→](#-attributes)   |
+| `{{ ... }}` nodes | `{{ user.email }}`    | [→](#text-nodes)     |
+| Expressions       | `1 + users[i].score`  | [→](#expressions)    |
 
 ## `^` Attributes
 
@@ -219,11 +227,30 @@ Replace the rendered element's tag with this element, given an expression that r
 <slot pl-is='i == 0 ? "h1" : "h2"'>{item}</slot>
 ```
 
+## Text Nodes
+
+In an HTML text node, `{{variable}}` inserts a (sanitized) string.
+
+```html
+<h1>Welcome back {{user.name}}!</h1>
+```
+
+If the variable is not defined then an error is returned.
+
+| Data type | Rendered as   |
+| --------- | ------------- |
+| Number    | A number      |
+| String    | A string      |
+| Boolean   | true or false |
+| Null      | blank         |
+| Array     | error         |
+| Object    | error         |
+
 ## Expressions
 
 All valid JSON values are valid `platelet` expressions. On top of this, single-quoted strings `'like this'` are allowed for convinience when working with HTML.
 
-## Operators
+### Operators
 
 On anything: `==`, `!=`, `&&`, `||`, `!`, `x ? y : z`
 
@@ -243,27 +270,8 @@ On arrays: `len(z)`
 
 Expressions can be bracketed `(9 + 3) / 2 == 6`
 
-## Truthiness
+### Truthiness
 
 `false`, `[]`, `""`, `{}`, `null` are **falsy**.
 
 All other values are **truthy**.
-
-## Text Nodes
-
-In an HTML text node, `{{variable}}` inserts a (sanitized) string.
-
-```html
-<h1>Welcome back {{user.name}}!</h1>
-```
-
-If the variable is not defined then an error is returned.
-
-| Data type | Rendered as   |
-| --------- | ------------- |
-| Number    | A number      |
-| String    | A string      |
-| Boolean   | true or false |
-| Null      | blank         |
-| Array     | error         |
-| Object    | error         |
