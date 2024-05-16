@@ -258,14 +258,23 @@ fn attrify(val: &Value) -> Option<String> {
         Value::Array(a) => {
             let xs: Vec<_> = a.iter().filter_map(attrify).collect();
 
-            Some(xs.join(" "))
+            if xs.is_empty() {
+                None
+            } else {
+                Some(xs.join(" "))
+            }
         }
         Value::Object(o) => {
             let xs: Vec<_> = o
                 .iter()
                 .filter_map(|(k, v)| if truthy(v) { Some(k.to_owned()) } else { None })
                 .collect();
-            Some(xs.join(" "))
+
+            if xs.is_empty() {
+                None
+            } else {
+                Some(xs.join(" "))
+            }
         }
     }
 }
