@@ -207,12 +207,12 @@ where
                 let mut children = children.to_owned();
 
                 children.retain(|item| match item {
-                    node @ Node::Element {
+                    Node::Element {
                         name,
                         attrs,
                         children,
                     } if name == "template" => {
-                        let (_, slot_name) = attrs.iter().find(|(k, v)| k == "name").unwrap();
+                        let (_, slot_name) = attrs.iter().find(|(k, _)| k == "pl-slot").unwrap();
                         slots.insert(slot_name.clone(), children.to_owned());
                         false
                     }
@@ -766,9 +766,9 @@ mod render_test {
                     (
                         "index.html".into(),
                         "<slot pl-src='embed.html'>\
-                                <template name='left'><b>Left</b> hand side</template>\
-                                <template name='right'><b>Right</b> hand side</template>\
-                             </slot>"
+                             <template pl-slot='left'><b>Left</b> hand side</template>\
+                             <template pl-slot='right'><b>Right</b> hand side</template>\
+                         </slot>"
                             .to_owned(),
                     ),
                     (
