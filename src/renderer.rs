@@ -1,7 +1,9 @@
 use core::fmt;
 use serde_json::Value;
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 use crate::expression_eval::{eval, truthy, EvalError};
 use crate::expression_parser::expr;
@@ -44,6 +46,7 @@ impl fmt::Display for RenderError {
 fn render_elem<F>(
     node: &mut Node,
     vars: &Value,
+    slots: Rc<HashMap<String, Vec<Node>>>,
     previous_conditional: &Option<bool>,
     next_neighbour_conditional: &mut Option<bool>,
     filename: &PathBuf,
@@ -55,7 +58,7 @@ where
     match node {
         Node::Doctype { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Document { children } => {
-            render_children(children, vars, filename, filesystem)?;
+            render_children(children, vars, slots, filename, filesystem)?;
             return Ok(PostRenderOperation::Nothing);
         }
         Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
@@ -137,14 +140,30 @@ where
                     for ctx in contexts {
                         for child in children.clone() {
                             let mut child = child.clone();
-                            render_elem(&mut child, &ctx, &None, &mut None, filename, filesystem)?;
+                            render_elem(
+                                &mut child,
+                                &ctx,
+                                slots.clone(),
+                                &None,
+                                &mut None,
+                                filename,
+                                filesystem,
+                            )?;
                             repeats.push(child);
                         }
                     }
                 } else {
                     for ctx in contexts {
                         let mut copy = node.clone();
-                        render_elem(&mut copy, &ctx, &None, &mut None, filename, filesystem)?;
+                        render_elem(
+                            &mut copy,
+                            &ctx,
+                            slots.clone(),
+                            &None,
+                            &mut None,
+                            filename,
+                            filesystem,
+                        )?;
                         repeats.push(copy);
                     }
                 }
@@ -180,12 +199,25 @@ where
                 let (_, src) = &attrs_list[src_index];
 
                 let path = filename.parent().unwrap().join(src);
-                let rendered = render(vars, &path, filesystem)?;
+
+                let slots: HashMap<_, Vec<Node>> =
+                    HashMap::from([("".to_owned(), children.clone())]);
+
+                let rendered = render(vars, Rc::new(slots), &path, filesystem)?;
                 match rendered {
                     Node::Document { children } => {
                         return Ok(PostRenderOperation::ReplaceMeWith(children))
                     }
                     _ => panic!("I know that render only ever returns a document"),
+                }
+            }
+
+            if let Some(src_index) = attrs_list.iter().position(|(name, _)| name == "pl-slot") {
+                let (_, src) = &attrs_list[src_index];
+
+                match slots.get(src) {
+                    Some(node) => return Ok(PostRenderOperation::ReplaceMeWith(node.clone())),
+                    None => panic!("no slot provided"),
                 }
             }
 
@@ -209,7 +241,7 @@ where
 
             modify_attrs(attrs_list, vars)?;
 
-            render_children(children, vars, filename, filesystem)?;
+            render_children(children, vars, slots, filename, filesystem)?;
 
             return Ok(PostRenderOperation::Nothing);
         }
@@ -219,6 +251,7 @@ where
 fn render_children<F>(
     children: &mut Vec<Node>,
     vars: &Value,
+    slots: Rc<HashMap<String, Vec<Node>>>,
     filename: &PathBuf,
     filesystem: &F,
 ) -> Result<(), RenderError>
@@ -231,7 +264,15 @@ where
     let mut set_this = None;
     while i < children.len() {
         let child = children[i].borrow_mut();
-        match render_elem(child, vars, &get_this, &mut set_this, filename, filesystem)? {
+        match render_elem(
+            child,
+            vars,
+            slots.clone(),
+            &get_this,
+            &mut set_this,
+            filename,
+            filesystem,
+        )? {
             PostRenderOperation::Nothing => {
                 i += 1;
             }
@@ -301,7 +342,12 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), R
     Ok(())
 }
 
-fn render<F>(vars: &Value, filename: &PathBuf, filesystem: &F) -> Result<Node, RenderError>
+fn render<F>(
+    vars: &Value,
+    slots: Rc<HashMap<String, Vec<Node>>>,
+    filename: &PathBuf,
+    filesystem: &F,
+) -> Result<Node, RenderError>
 where
     F: Filesystem,
 {
@@ -309,7 +355,9 @@ where
 
     let mut node = parse_html(html);
 
-    render_elem(&mut node, vars, &None, &mut None, filename, filesystem)?;
+    render_elem(
+        &mut node, vars, slots, &None, &mut None, filename, filesystem,
+    )?;
 
     Ok(node)
 }
@@ -322,7 +370,7 @@ pub fn render_to_string<F>(
 where
     F: Filesystem,
 {
-    render(vars, filename, filesystem).map(|x| x.to_string())
+    render(vars, Rc::new(HashMap::new()), filename, filesystem).map(|x| x.to_string())
 }
 
 pub fn render_string(vars: &Value, html: String) -> Result<String, RenderError> {
@@ -663,6 +711,29 @@ mod render_test {
             },
         );
         assert_eq!(result.unwrap(), "<article><p>hello world</p></article>");
+    }
+
+    #[test]
+    fn pl_src_with_slot() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &"index.html".into(),
+            &MockMultiFile {
+                data: HashMap::from([
+                    (
+                        "index.html".into(),
+                        "<article><slot pl-src='embed.html'><b>inner</b><b>content</b></slot></article>".to_owned(),
+                    ),
+                    ("embed.html".into(), "<div><slot pl-slot></slot></div>".to_owned()),
+                ]),
+            },
+        );
+        assert_eq!(
+            result.unwrap(),
+            "<article><div><b>inner</b><b>content</b></div></article>"
+        );
     }
 
     #[test]
