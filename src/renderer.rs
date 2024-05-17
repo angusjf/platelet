@@ -29,6 +29,7 @@ pub enum RenderError {
     Parser,
     ForLoopParser(()),
     Eval(EvalError),
+    UndefinedSlot(String),
 }
 
 impl fmt::Display for RenderError {
@@ -38,7 +39,8 @@ impl fmt::Display for RenderError {
             RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
-            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER: {:?}", e),
+            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR: {:?}", e),
+            RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
         }
     }
 }
@@ -200,8 +202,24 @@ where
 
                 let path = filename.parent().unwrap().join(src);
 
-                let slots: HashMap<_, Vec<Node>> =
-                    HashMap::from([("".to_owned(), children.clone())]);
+                let mut slots: HashMap<_, Vec<Node>> = HashMap::new();
+
+                let mut children = children.to_owned();
+
+                children.retain(|item| match item {
+                    node @ Node::Element {
+                        name,
+                        attrs,
+                        children,
+                    } if name == "template" => {
+                        let (_, slot_name) = attrs.iter().find(|(k, v)| k == "name").unwrap();
+                        slots.insert(slot_name.clone(), children.to_owned());
+                        false
+                    }
+                    _ => true,
+                });
+
+                slots.insert("".to_owned(), children);
 
                 let rendered = render(vars, Rc::new(slots), &path, filesystem)?;
                 match rendered {
@@ -217,7 +235,7 @@ where
 
                 match slots.get(src) {
                     Some(node) => return Ok(PostRenderOperation::ReplaceMeWith(node.clone())),
-                    None => panic!("no slot provided"),
+                    None => return Err(RenderError::UndefinedSlot(src.clone())),
                 }
             }
 
@@ -733,6 +751,38 @@ mod render_test {
         assert_eq!(
             result.unwrap(),
             "<article><div><b>inner</b><b>content</b></div></article>"
+        );
+    }
+
+    #[test]
+    fn pl_src_with_named_slots() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &"index.html".into(),
+            &MockMultiFile {
+                data: HashMap::from([
+                    (
+                        "index.html".into(),
+                        "<slot pl-src='embed.html'>\
+                                <template name='left'><b>Left</b> hand side</template>\
+                                <template name='right'><b>Right</b> hand side</template>\
+                             </slot>"
+                            .to_owned(),
+                    ),
+                    (
+                        "embed.html".into(),
+                        "<left><slot pl-slot='left'></slot></left>\
+                         <right><slot pl-slot='right'></slot></right>"
+                            .to_owned(),
+                    ),
+                ]),
+            },
+        );
+        assert_eq!(
+            result.unwrap(),
+            "<left><b>Left</b> hand side</left><right><b>Right</b> hand side</right>"
         );
     }
 

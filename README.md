@@ -13,6 +13,7 @@ This means you can use your own HTML formatters and tooling.
 ## Example
 
 ###### Template
+
 ```html
 <ul pl-if="n > 0">
   <li pl-for="i in [1, 2, 3]">{{ i }} × {{ n }} = {{ i * n }}</li>
@@ -20,6 +21,7 @@ This means you can use your own HTML formatters and tooling.
 ```
 
 ###### Context (input)
+
 ```json
 { "n": 7 }
 ```
@@ -101,14 +103,15 @@ And the following JSON file:
   ]
 }
 ```
+
 </details>
 
 ## Reference
 
-| Syntax            | Example               | Details                    |
-| ----------------- | --------------------- | -------------------------- |
+| Syntax            | Example               | Details              |
+| ----------------- | --------------------- | -------------------- |
 | `pl-` directives  | `pl-if`, `pl-for` ... | [→](#pl--directives) |
-| `^` attributes    | `^class`, `^name` ... | [→](#-attributes)   |
+| `^` attributes    | `^class`, `^name` ... | [→](#-attributes)    |
 | `{{ ... }}` nodes | `{{ user.email }}`    | [→](#text-nodes)     |
 | Expressions       | `1 + users[i].score`  | [→](#expressions)    |
 
