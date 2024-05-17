@@ -6,9 +6,14 @@ This repo contains a Rust library for rendering `platelet` templates.
 
 ## Why platelet?
 
-Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML.
+Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML (simlar to Vue.js).
 
-This means you can use your own HTML formatters and tooling.
+This has a few upsides:
+
+- **Higher level** but [less powerful](https://www.w3.org/DesignIssues/Principles.html#:~:text=Principle%20of%20Least%20Power) than direct string manipulation
+- The language is **natural to read and write** when working with HTML, and control flow follows HTML structure
+- You can use your own HTML formatters and **tooling**
+- HTML **sanitization** is more natural and straightforward
 
 ## Example
 
@@ -41,9 +46,7 @@ This means you can use your own HTML formatters and tooling.
 
 ### Advanced example
 
-Imagine a directory, `templates` containing these files:
-
-`templates/index.html`
+###### Template `templates/index.html`
 
 ```html
 <!doctype html>
@@ -58,7 +61,7 @@ Imagine a directory, `templates` containing these files:
 </html>
 ```
 
-`templates/blogpost.html`
+###### Template `templates/blogpost.html`
 
 ```html
 <article>
@@ -78,9 +81,7 @@ Imagine a directory, `templates` containing these files:
 </style>
 ```
 
-And the following JSON file:
-
-`variables.json`
+###### Context (input)
 
 ```json
 {
@@ -129,8 +130,6 @@ HTML Attributes starting with a `pl-` are special. They are inspired by Vue's di
 | `pl-src`     |
 | `pl-slot`    |
 | `pl-is`      |
-
-Here's a detailed breakdown of what they do
 
 ### Conditinals: `pl-if`, `pl-else-if`, `pl-else`
 

@@ -36,18 +36,28 @@
     <body>
         <header></header>
         <main class="editors">
-            <div id="html-editor" class="editor"></div>
+            <div id="html-editors">
+                <div class="editor"></div>
+                <div class="editor"></div>
+            </div>
             <div id="json-editor" class="editor"></div>
             <div id="html-output" class="editor"></div>
             <div id="rendered-output" class="editor"></div>
         </main>
         <script type="module">
             import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
-            import init, { render_files } from "/pkg/platelet_web.js";
+            import init, { render_files } from "/platelet/pkg/platelet_web.js";
 
-            const htmlEditor = new CodeFlask("#html-editor", {
-                language: "html",
-            });
+            // import CodeFlask from "./codeflask.module.js";
+            // import init, { render_files } from "/pkg/platelet_web.js";
+
+            const htmlEditors = [...document.getElementById("html-editors").children].map(
+                (e) =>
+                    new CodeFlask(e, {
+                        language: "html",
+                    }),
+            );
+
             const jsonEditor = new CodeFlask("#json-editor", {
                 language: "javascript",
             });
@@ -58,7 +68,7 @@
 
             const renderedOutput = document.getElementById("rendered-output");
 
-            htmlEditor.updateCode(
+            htmlEditors[0].updateCode(
                 `<h1>Hello {{language}}!</h1>
 
 <p>Here are the {{ n }} times tables:</p>
@@ -71,6 +81,8 @@
 
 <p pl-else>wait ... there are no {{ n }} times tables</p>
 
+<slot pl-src="component.html"></slot>
+
 <style>
 .green {
   color: seagreen;
@@ -78,23 +90,25 @@
 </style>
 `,
             );
+
+            htmlEditors[1].updateCode(`<details><slot></slot></details>`);
             jsonEditor.updateCode(JSON.stringify({ n: 7, language: "platelet" }, undefined, 4));
             htmlOutput.updateCode(`loading...`);
 
             async function hookUp() {
                 await init();
 
-                htmlEditor.onUpdate((code) => {
-                    refreshOutput(code, jsonEditor.code);
-                });
+                htmlEditors.map((e) => e.onUpdate(() => refreshOutput()));
 
-                jsonEditor.onUpdate((code) => {
-                    refreshOutput(htmlEditor.code, code);
-                });
+                jsonEditor.onUpdate(() => refreshOutput());
 
                 function refreshOutput(html, json) {
                     try {
-                        let result = render_files("index.html", JSON.stringify({ "index.html": html }), json);
+                        let files = {
+                            "index.html": htmlEditors[0].code,
+                            "component.html": htmlEditors[1].code,
+                        };
+                        let result = render_files("index.html", JSON.stringify(files), jsonEditor.code);
                         htmlOutput.updateCode(result);
                         renderedOutput.innerHTML = result;
                     } catch (e) {
@@ -104,7 +118,7 @@
                     }
                 }
 
-                refreshOutput(htmlEditor.code, jsonEditor.code);
+                refreshOutput();
             }
 
             hookUp();
