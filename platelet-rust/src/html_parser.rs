@@ -2,6 +2,7 @@ use crate::html::Node as N;
 use crate::rcdom::Node;
 use crate::rcdom::NodeData;
 pub use crate::rcdom::RcDom;
+
 use html5ever::driver::parse_document;
 use html5ever::driver::parse_fragment;
 use html5ever::driver::ParseOpts;
@@ -10,6 +11,7 @@ use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{namespace_url, ns};
 use markup5ever::Attribute;
 use markup5ever::{LocalName, QualName};
+
 use std::cell::RefCell;
 use std::rc::Rc;
 

@@ -1,5 +1,4 @@
-/target
-dist
-.DS_Store
-.prettierrc.json
-TODO.md
+*/target
+*/dist
+**/.DS_Store
+**/.prettierrc.json

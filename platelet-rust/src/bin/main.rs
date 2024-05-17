@@ -1,4 +1,5 @@
-use platelet::renderer::{render_to_string, Filesystem};
+use platelet::render_to_string;
+use platelet::renderer::Filesystem;
 use serde_json::Value;
 use std::env;
 use std::fs::File;
@@ -12,17 +13,27 @@ enum RealFilesystem {
 }
 
 impl Filesystem for RealFilesystem {
-    fn get_data_at_path(&self, filename: &PathBuf) -> String {
+    fn read(&self, filename: &String) -> String {
+        let filename: PathBuf = filename.try_into().unwrap();
         let mut file = File::open(filename.clone()).expect("bad file");
         let mut buf = String::new();
         file.read_to_string(&mut buf).unwrap();
         buf
     }
+    fn move_to(&self, current: &String, path: &String) -> String {
+        let current: PathBuf = current.try_into().unwrap();
+        current
+            .parent()
+            .unwrap()
+            .join(path)
+            .to_str()
+            .unwrap()
+            .to_owned()
+    }
 }
 
 fn main() {
     let filename = env::args().nth(1).expect(USAGE);
-    let filename = Path::new(&filename);
 
     let mut stdin = String::new();
     io::stdin().read_to_string(&mut stdin).unwrap();
@@ -30,11 +41,6 @@ fn main() {
 
     println!(
         "{}",
-        render_to_string(
-            &stdin,
-            &filename.to_path_buf(),
-            &RealFilesystem::RealFilesystem
-        )
-        .unwrap()
+        render_to_string(&stdin, &filename, &RealFilesystem::RealFilesystem).unwrap()
     );
 }

@@ -1,55 +1,55 @@
-name: CI
+# name: CI
 
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+# on:
+#   push:
+#     branches: ["main"]
+#   pull_request:
+#     branches: ["main"]
 
-  workflow_dispatch:
+#   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+# permissions:
+#   contents: read
+#   pages: write
+#   id-token: write
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - run: rustup update stable && rustup default stable
-      - run: cargo build --verbose
-      - run: command -v wasm-pack || cargo install wasm-pack
-      - run: wasm-pack build --target web
-      - run: |
-          mkdir dist
-          cp -r pkg dist
-          cp -r web/* dist/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
+#     steps:
+#       - uses: actions/checkout@v4
+#       - uses: actions/cache@v4
+#         with:
+#           path: |
+#             ~/.cargo/bin/
+#             ~/.cargo/registry/index/
+#             ~/.cargo/registry/cache/
+#             ~/.cargo/git/db/
+#             platelet-web/target/
+#           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#       - run: rustup update stable && rustup default stable
+#       - run: cargo build --verbose
+#       - run: command -v wasm-pack || cargo install wasm-pack
+#       - run: wasm-pack build --target web
+#       - run: |
+#           mkdir dist
+#           cp -r pkg dist
+#           cp -r web/* dist/
+#       - uses: actions/configure-pages@v5
+#       - uses: actions/upload-pages-artifact@v3
+#         with:
+#           path: ./dist
 
-  deploy:
-    needs: build
+#   deploy:
+#     needs: build
 
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+#     environment:
+#       name: github-pages
+#       url: ${{ steps.deployment.outputs.page_url }}
 
-    runs-on: ubuntu-latest
+#     runs-on: ubuntu-latest
 
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+#     steps:
+#       - id: deployment
+#         uses: actions/deploy-pages@v4
