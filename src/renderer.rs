@@ -1,6 +1,7 @@
 use core::fmt;
+use regex::Regex;
 use serde_json::Value;
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -22,7 +23,7 @@ enum PostRenderOperation {
     ReplaceMeWith(Vec<Node>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RenderError {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
@@ -30,6 +31,7 @@ pub enum RenderError {
     ForLoopParser(()),
     Eval(EvalError),
     UndefinedSlot(String),
+    BadPlIsName(String),
 }
 
 impl fmt::Display for RenderError {
@@ -41,6 +43,7 @@ impl fmt::Display for RenderError {
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
             RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR: {:?}", e),
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
+            RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
         }
     }
 }
@@ -246,8 +249,13 @@ where
                 let v = eval(&exp, vars).map_err(RenderError::Eval)?;
                 match v {
                     Value::String(tag) => {
-                        attrs_list.remove(exp_index);
-                        *name = tag;
+                        let html_tag_re = Regex::new(r"^(?i)[A-Z][\w.-]*$").unwrap();
+                        if html_tag_re.is_match(&tag) {
+                            attrs_list.remove(exp_index);
+                            *name = tag;
+                        } else {
+                            return Err(RenderError::BadPlIsName(tag));
+                        };
                     }
                     _v => {
                         return Err(RenderError::IllegalDirective(
@@ -959,6 +967,23 @@ mod render_test {
         assert_eq!(
             result.unwrap(),
             "<div>B</div><div>B</div><div>B</div><div>C</div>"
+        );
+    }
+
+    #[test]
+    fn bad_pl_is_name() {
+        let vars = Map::new().into();
+
+        let result = render_to_string(
+            &vars,
+            &PathBuf::new(),
+            &MockSingleFile {
+                data: "<div pl-is='\"\"'></div>".into(),
+            },
+        );
+        assert_eq!(
+            result.unwrap_err(),
+            RenderError::BadPlIsName("".to_string())
         );
     }
 }

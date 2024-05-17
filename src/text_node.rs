@@ -8,7 +8,7 @@ use crate::{
     expression_parser::expr,
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RenderError {
     EvalError(EvalError),
     ParserError,
