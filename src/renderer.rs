@@ -2,10 +2,9 @@ use core::fmt;
 use serde_json::Value;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
-use winnow::error::{ContextError, ParseError};
 
 use crate::expression_eval::{eval, truthy, EvalError};
-use crate::expression_parser::{self, expr};
+use crate::expression_parser::expr;
 use crate::for_loop_parser::for_loop;
 use crate::html::Node;
 use crate::html_parser::parse_html;
@@ -26,6 +25,7 @@ pub enum RenderError {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
     Parser,
+    ForLoopParser(()),
     Eval(EvalError),
 }
 
@@ -36,6 +36,7 @@ impl fmt::Display for RenderError {
             RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
+            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER: {:?}", e),
         }
     }
 }
@@ -127,7 +128,7 @@ where
             if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
                 let (_, fl) = &attrs_list[fl_index];
 
-                let fl = for_loop(&mut fl.as_ref()).map_err(|_| RenderError::Parser)?;
+                let fl = for_loop(&mut fl.as_ref()).map_err(|_| RenderError::ForLoopParser(()))?;
                 let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
                 attrs_list.remove(fl_index);
 

@@ -1,6 +1,6 @@
 use winnow::combinator::alt;
 use winnow::combinator::{delimited, separated_pair};
-use winnow::error::{ContextError, ParseError};
+use winnow::error::StrContext;
 use winnow::prelude::*;
 
 use crate::expression_parser::Expression;
@@ -17,10 +17,10 @@ pub(crate) enum ForLoop {
     IndexedKeyValue((String, String, String), Expression),
 }
 
-pub(crate) fn for_loop<'a>(
-    input: &'a mut &str,
-) -> Result<ForLoop, ParseError<&'a str, ContextError>> {
-    delimited(ws, for_, ws).parse(input)
+pub(crate) fn for_loop(input: &mut &str) -> Result<ForLoop, String> {
+    delimited(ws, for_, ws)
+        .parse(input)
+        .map_err(|e| format!("{}", e.to_string()))
 }
 
 fn for_(input: &mut &str) -> PResult<ForLoop> {
@@ -52,6 +52,7 @@ fn for_(input: &mut &str) -> PResult<ForLoop> {
         )
         .map(|((a, (b, c)), exp)| ForLoop::IndexedKeyValue((a, b, c), exp)),
     ))
+    .context(StrContext::Label("for loop"))
     .parse_next(input)
 }
 
