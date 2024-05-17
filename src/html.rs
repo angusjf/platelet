@@ -25,19 +25,17 @@ impl Node {
             s.replace('&', "&amp;")
                 .replace('<', "&lt;")
                 .replace('>', "&gt;")
-            // .replace('"', "&quot;")
-            // .replace("'", "&#39;")
-            // .replace('/', "&#x2F;")
-            // .replace('`', "&#x60;")
-            // .replace('=', "&#x3D;")
-            //  TODO sort this mess
         }
-        fn html_attr_safe(s: &str) -> String {
-            s.replace('"', "&quot;").replace("'", "&#39;")
-            // .replace('/', "&#x2F;")
-            // .replace('`', "&#x60;")
-            // .replace('=', "&#x3D;")
-            //  TODO sort this mess
+        fn html_attr_safe_quoted(s: &str) -> String {
+            // prefer single quotes - unless it allows us to avoid escaping
+            let (outer_quotes, sanetized) = match (s.contains('\''), s.contains('"')) {
+                (true, true) => ('\'', s.replace("'", "&#39;")),
+                (true, false) => ('"', s.to_owned()),
+                (false, true) => ('\'', s.to_owned()),
+                (false, false) => ('\'', s.to_owned()),
+            };
+
+            format!("{}{}{}", outer_quotes, sanetized, outer_quotes)
         }
         match self {
             Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_text_safe(doctype)),
@@ -50,7 +48,7 @@ impl Node {
             } => {
                 let attrs_str = attrs
                     .iter()
-                    .map(|(key, value)| format!(" {}='{}'", key, html_attr_safe(value)))
+                    .map(|(key, value)| format!(" {}={}", key, html_attr_safe_quoted(value)))
                     .collect::<String>();
 
                 let children_str = children
