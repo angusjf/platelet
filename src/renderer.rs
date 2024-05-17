@@ -28,8 +28,9 @@ pub enum RenderError {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
     Parser,
-    ForLoopParser(String),
     Eval(EvalError),
+    ForLoopParser(String),
+    ForLoopEval(String),
     UndefinedSlot(String),
     BadPlIsName(String),
 }
@@ -42,6 +43,7 @@ impl fmt::Display for RenderError {
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
             RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR:\n{}", e),
+            RenderError::ForLoopEval(e) => write!(f, "FOR LOOP EVALUATION ERROR: {}", e),
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
             RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
         }
@@ -137,7 +139,8 @@ where
                 let (_, fl) = &attrs_list[fl_index];
 
                 let fl = for_loop(&mut fl.as_ref()).map_err(RenderError::ForLoopParser)?;
-                let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
+                let contexts = for_loop_runner::for_loop_runner(&fl, vars)
+                    .map_err(RenderError::ForLoopEval)?;
                 attrs_list.remove(fl_index);
 
                 let mut repeats = vec![];

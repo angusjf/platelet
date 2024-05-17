@@ -11,6 +11,7 @@ mod html_parser;
 mod rcdom;
 pub mod renderer;
 mod text_node;
+mod types;
 
 #[wasm_bindgen]
 pub fn render(html: String, context: String) -> Result<String, String> {
@@ -38,9 +39,38 @@ mod render_test {
     }
 
     #[test]
-    fn parser_error() {
+    fn for_loop_parser_error() {
         let result = render(
             "<h1 pl-for='x, in [1,2,3]'>{{ hello }} world {{ x }}".to_owned(),
+            r#"{ "hello": "hi" }"#.to_owned(),
+        );
+        assert_eq!(
+            result,
+            Err(r#"FOR LOOP PARSER ERROR:
+x, in [1,2,3]
+^
+invalid for loop"#
+                .to_owned())
+        );
+    }
+
+    #[test]
+    fn for_loop_exec_error() {
+        let result = render(
+            "<h1 pl-for='x in 1'>{{ hello }} world {{ x }}".to_owned(),
+            r#"{ "hello": "hi" }"#.to_owned(),
+        );
+        assert_eq!(
+            result,
+            Err(r#"FOR LOOP EVALUATION ERROR: Expected array, found number"#.to_owned())
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn expression_parser_error() {
+        let result = render(
+            "<h1 pl-if='x > {{ hello }} world".to_owned(),
             r#"{ "hello": "hi" }"#.to_owned(),
         );
         assert_eq!(

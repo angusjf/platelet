@@ -1,6 +1,10 @@
 use serde_json::Value;
 
-use crate::{expression_eval::eval, for_loop_parser::ForLoop};
+use crate::{
+    expression_eval::eval,
+    for_loop_parser::ForLoop,
+    types::{type_of, Type},
+};
 
 #[derive(Debug)]
 pub(crate) enum Error {
@@ -12,7 +16,7 @@ pub(crate) enum Error {
 pub(crate) fn for_loop_runner(
     for_loop: &ForLoop,
     base_context: &Value,
-) -> Result<Vec<Value>, (Error, Value)> {
+) -> Result<Vec<Value>, String> {
     match for_loop {
         ForLoop::Simple(id, exp) => {
             let val = eval(exp, base_context).unwrap();
@@ -80,4 +84,21 @@ pub(crate) fn for_loop_runner(
             }
         }
     }
+    .map_err(|(err, val)| {
+        let expected = match err {
+            Error::Simple => &[Type::Array][..],
+            Error::IndexedObjectOrKeyValue => &[Type::Array, Type::Object],
+            Error::IndexedKeyValue => &[Type::Object],
+        };
+
+        format!(
+            "Expected {}, found {}",
+            expected
+                .iter()
+                .map(Type::to_string)
+                .collect::<Vec<_>>()
+                .join(" or "),
+            type_of(&val).to_string()
+        )
+    })
 }
