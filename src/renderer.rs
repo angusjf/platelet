@@ -28,7 +28,7 @@ pub enum RenderError {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
     Parser,
-    ForLoopParser(()),
+    ForLoopParser(String),
     Eval(EvalError),
     UndefinedSlot(String),
     BadPlIsName(String),
@@ -41,7 +41,7 @@ impl fmt::Display for RenderError {
             RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
-            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR: {:?}", e),
+            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR: {}", e),
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
             RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
         }
@@ -136,7 +136,7 @@ where
             if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
                 let (_, fl) = &attrs_list[fl_index];
 
-                let fl = for_loop(&mut fl.as_ref()).map_err(|_| RenderError::ForLoopParser(()))?;
+                let fl = for_loop(&mut fl.as_ref()).map_err(RenderError::ForLoopParser)?;
                 let contexts = for_loop_runner::for_loop_runner(&fl, vars).unwrap();
                 attrs_list.remove(fl_index);
 
