@@ -43,7 +43,7 @@
         </main>
         <script type="module">
             import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
-            import init, { renderFiles } from "/platelet/pkg/platelet.js";
+            import init, { render_files } from "/pkg/platelet_web.js";
 
             const htmlEditor = new CodeFlask("#html-editor", {
                 language: "html",
@@ -94,7 +94,7 @@
 
                 function refreshOutput(html, json) {
                     try {
-                        let result = render(html, json);
+                        let result = render_files("index.html", JSON.stringify({ "index.html": html }), json);
                         htmlOutput.updateCode(result);
                         renderedOutput.innerHTML = result;
                     } catch (e) {
