@@ -45,7 +45,8 @@ mod render_test {
         );
         assert_eq!(
             result,
-            Err(r#"FOR LOOP PARSER ERROR: x, in [1,2,3]
+            Err(r#"FOR LOOP PARSER ERROR:
+x, in [1,2,3]
 ^
 invalid for loop"#
                 .to_owned())

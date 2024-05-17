@@ -41,7 +41,7 @@ impl fmt::Display for RenderError {
             RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
-            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR: {}", e),
+            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR:\n{}", e),
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
             RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
         }
