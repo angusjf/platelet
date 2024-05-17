@@ -71,7 +71,7 @@ This has a few upsides:
             <a ^href="blogpost.link">{{b.title}}</a>
         <h2>
         <template pl-html="blogpost.summary"></template>
-        <date>{{b.date}}</date>
+        <date>{{blogpost.date}}</date>
     </div>
 </article>
 <style>

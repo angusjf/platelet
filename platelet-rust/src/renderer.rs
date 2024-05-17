@@ -1,10 +1,9 @@
 use core::fmt;
 use regex::Regex;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::str::FromStr;
 
 use crate::expression_eval::{eval, truthy, EvalError};
 use crate::expression_parser::expr;
@@ -228,7 +227,22 @@ where
 
                 slots.insert("".to_owned(), children);
 
-                let rendered = render(vars, Rc::new(slots), &path, filesystem)?;
+                let mut new_context = Map::new();
+
+                for (attr, val) in attrs_list.to_owned() {
+                    if let Some(attr) = attr.strip_prefix("^") {
+                        let exp = expr(&mut val.as_ref()).unwrap();
+                        let v = eval(&exp, vars).unwrap();
+                        new_context.insert(attr.to_string(), v);
+                    }
+                }
+
+                let rendered = render(
+                    &Value::Object(new_context),
+                    Rc::new(slots),
+                    &path,
+                    filesystem,
+                )?;
                 match rendered {
                     Node::Document { children } => {
                         return Ok(PostRenderOperation::ReplaceMeWith(children))

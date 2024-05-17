@@ -90,3 +90,23 @@ fn pl_src_with_named_slots() {
         "<left><b>Left</b> hand side</left><right><b>Right</b> hand side</right>"
     );
 }
+
+#[test]
+fn pl_src_with_cotext() {
+    let vars = Map::new().into();
+
+    let result = render_to_string(
+        &vars,
+        &"index.html".into(),
+        &MockMultiFile {
+            data: HashMap::from([
+                (
+                    "index.html".into(),
+                    r#"<slot pl-src='embed.html' ^message='"hello world"'></slot>"#.to_owned(),
+                ),
+                ("embed.html".into(), "<code>{{message}}</code>".to_owned()),
+            ]),
+        },
+    );
+    assert_eq!(result.unwrap(), "<code>hello world</code>");
+}
