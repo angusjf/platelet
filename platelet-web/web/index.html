@@ -80,6 +80,7 @@
 
                 flex-direction: column;
             }
+
             @media (min-width: 1000px) {
                 article {
                     flex-direction: row;
@@ -87,6 +88,9 @@
                 }
                 article:nth-child(even) {
                     flex-direction: row-reverse;
+                }
+                article > div {
+                    max-width: 50%;
                 }
                 article pre {
                     flex-grow: 1;
@@ -139,11 +143,11 @@
                 </div>
                 <pre><code class="language-html">&lt;img ^src='article.img_url'&gt;
 &lt;div&gt;
-    &lt;h2&gt;
-        &lt;a ^href='article.link'&gt;{{title}}&lt;/a&gt;
-    &lt;/h2&gt;
-    &lt;div pl-html='summary'&gt;&lt;/div&gt;
-    &lt;date&gt;{{date}}&lt;/date&gt;
+  &lt;h2&gt;
+    &lt;a ^href='article.link'&gt;{{title}}&lt;/a&gt;
+  &lt;/h2&gt;
+  &lt;div pl-html='summary'&gt;&lt;/div&gt;
+  &lt;date&gt;{{date}}&lt;/date&gt;
 &lt;/div&gt;</code></pre>
             </article>
             <article>
@@ -152,34 +156,28 @@
                     <p>Platelet uses HTML attributes for its syntax - so you can bring your own formatter and tooling.</p>
                 </div>
                 <pre><code class="language-html">&lt;ul pl-if="list"&gt;
-    &lt;li pl-for="item in list"&gt;
-      {{ item }}
-    &lt;/li&gt;
-&lt;/ul&gt;</code></pre>
+  &lt;li pl-for="item in list"&gt;
+    {{ item }}
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p pl-else&gt;no items&lt;/p&gt;</code></pre>
             </article>
             <article>
                 <div>
                     <h2>Break templates into small Components</h2>
                     <p>Support for named slots & importing templates out of the box.</p>
                 </div>
-                <pre><code class="language-html">&lt;!-- index.html --&gt;
-&lt;template
+                <pre><code class="language-html">&lt;template
   pl-src="button.html"
-  pl-data='{ "action": "/submit" }'
-&gt;
-    &lt;b&gt;Approve&lt;b&gt; changes
+  ^action='"/submit/" + uuid'&gt;
+  &lt;b&gt;Approve&lt;b&gt; changes
 &lt;/template&gt;
-</code></pre>
-            </article>
-            <article>
-                <div>
-                    <h2>&lt;style&gt; & &lt;script&gt; de-duplication</h2>
-                    <p>Identical scripts and stylesheets are combined so you can co-locate your components, styles and behaviour.</p>
-                </div>
-                <pre><code class="language-html">
 
-                    &lt;script src="/custom-textarea.mjs"&gt;&lt;script&gt;
-                    &lt;custom-textarea pl-for=""&gt;&lt;/custom-textarea&gt;
+&lt;!-- button.html --&gt;
+&lt;button ^formaction='action'&gt;
+  &lt;slot pl-slot&gt;&lt;/slot&gt;
+&lt;/button&gt;
 </code></pre>
             </article>
             <article>
@@ -187,7 +185,31 @@
                     <h2>Works great with htmx & Alpine.js</h2>
                     <p>Combine platelet for server side rendering with htmx and/or Alpine.js for interactivity.</p>
                 </div>
-                <pre><code class="language-html">&lt;!-- index.html --&gt;
+                <pre><code class="language-html">&lt;tr pl-for='(contact, i) in contacts'
+    ^hx-get='i > 9 && "/contacts/?page=" + next'
+    hx-trigger='revealed'
+    hx-swap='afterend'&gt;
+  &lt;td&gt;{{ contract.name }}&lt;/td&gt;
+  &lt;td&gt;{{ contract.email }}&lt;/td&gt;
+  &lt;td&gt;{{ contract.id }}&lt;/td&gt;
+&lt;/tr&gt;
+</code></pre>
+            </article>
+            <article>
+                <div>
+                    <h2>&lt;style&gt; & &lt;script&gt; de-duplication</h2>
+                    <p>Identical scripts and stylesheets are combined so you can co-locate your components, styles and behaviour.</p>
+                </div>
+                <pre><code class="language-html">&lt;template pl-for="input in inputs"&gt;
+  &lt;textarea data-input&gt;&lt;/textarea&gt;
+  &lt;style&gt;
+    textarea { border-color: green; }
+  &lt;/style&gt;
+  &lt;script&gt;
+    document.querySelectorAll("[data-input]")
+    .forEach( /* ... */ )
+  &lt;/script&gt;
+&lt;/template&gt;
 </code></pre>
             </article>
         </main>
