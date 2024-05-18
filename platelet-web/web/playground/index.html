@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
     <head>
-        <title>platelet - demo</title>
+        <title>platelet - playground</title>
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
         <style>
             :root {
@@ -52,7 +52,7 @@
                 flex-grow: 1;
             }
 
-            button[role="tab"] {
+            [role="tablist"] button {
                 appearance: none;
                 font-size: 1rem;
                 border: 2px solid lightgrey;
@@ -65,11 +65,18 @@
         <main class="editors">
             <div id="html-editors" class="tabs">
                 <div role="tablist">
-                    <button role="tab">index.html</button>
-                    <button role="tab">blogpost.html</button>
+                    <button role="tab" onclick="tabClick(this)">index.html</button>
+                    <button role="tab" onclick="tabClick(this)">blogpost.html</button>
+                    <template id="new-tab">
+                        <button role="tab" onclick="tabClick(this)">unnamed.html</button>
+                    </template>
+                    <button onclick="newTab()">+</button>
                 </div>
                 <div role="tabpanel" class="editor"></div>
                 <div role="tabpanel" class="editor" hidden></div>
+                <template id="new-tabpanel">
+                    <div role="tabpanel" class="editor" hidden></div>
+                </template>
             </div>
             <div id="json-editor" class="editor"></div>
             <div id="html-output" class="editor"></div>
@@ -77,12 +84,21 @@
                 <iframe sandbox id="rendered-output"></iframe>
             </div>
         </main>
+        <script type="importmap">
+            {
+                "imports": {
+                    "codeflask": "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm",
+                    "platelet": "/platelet/pkg/platelet_web.js"
+                },
+                "_imports": {
+                    "codeflask": "http://localhost:8000/playground/codeflask.module.js",
+                    "platelet": "http://localhost:8000/pkg/platelet_web.js"
+                }
+            }
+        </script>
         <script type="module">
-            import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
-            import init, { render_files } from "/platelet/pkg/platelet_web.js";
-
-            // import CodeFlask from "http://localhost:8000/demo/codeflask.module.js";
-            // import init, { render_files } from "http://localhost:8000/pkg/platelet_web.js";
+            import CodeFlask from "codeflask";
+            import init, { render_files } from "platelet";
 
             const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map((e, i) => ({
                 title: document.querySelectorAll("#html-editors [role=tablist] [role=tab]")[i].innerText,
@@ -126,6 +142,8 @@
 <style>
   article {
     display: flex;
+    gap: 1rem;
+    font-family: sans-serif;
   }
 </style>`);
 
@@ -135,7 +153,7 @@
                         title: "Welcome to platelet",
                         blogposts: [
                             {
-                                img_url: "https://angusjf.com/images/platelet_1x.jpg",
+                                img_url: "https://angusjf.com/images/cy_1x.jpg",
                                 link: "https://angusjf.com/platelet",
                                 summary: "<p><i>in my opinion</i>, it's <b>pretty good</b></p>",
                                 title: "Platelet",
@@ -163,39 +181,55 @@
 
                 jsonEditor.onUpdate(() => refreshOutput());
 
-                function refreshOutput(html, json) {
-                    try {
-                        let files = {};
-                        for (let i = 0; i < htmlEditors.length; i++) {
-                            files[htmlEditors[i].title] = htmlEditors[i].editor.code;
-                        }
-                        let result = render_files(htmlEditors[0].title, JSON.stringify(files), jsonEditor.code);
-                        htmlOutput.updateCode(result);
-                        renderedOutput.srcdoc = result;
-                    } catch (e) {
-                        console.error(e);
-                        htmlOutput.updateCode(e.toString());
-                        renderedOutput.srcdoc = "";
-                    }
-                }
-
                 refreshOutput();
+            }
+
+            function refreshOutput() {
+                try {
+                    let files = {};
+                    for (let i = 0; i < htmlEditors.length; i++) {
+                        files[htmlEditors[i].title] = htmlEditors[i].editor.code;
+                    }
+                    console.log(htmlEditors, files);
+                    let result = render_files(htmlEditors[0].title, JSON.stringify(files), jsonEditor.code);
+                    htmlOutput.updateCode(result);
+                    renderedOutput.srcdoc = result;
+                } catch (e) {
+                    console.error(e);
+                    htmlOutput.updateCode(e.toString());
+                    renderedOutput.srcdoc = "";
+                }
             }
 
             hookUp();
 
-            function tabClick(e) {
-                const tablist = e.target.closest("[role=tablist]");
-                let index = [...tablist.children].indexOf(e.target);
+            globalThis.tabClick = (e) => {
+                const tablist = e.closest("[role=tablist]");
+                let index = [...tablist.children].indexOf(e);
                 let tabpanels = [...tablist.parentNode.querySelectorAll("[role=tabpanel]")];
                 tabpanels.forEach((tabpanel, i) => {
                     tabpanel.hidden = i != index;
                 });
-            }
+            };
 
-            for (let tab of document.querySelectorAll("[role=tablist] [role=tab]")) {
-                tab.onclick = tabClick;
-            }
+            const lastMatch = (q) => [...document.querySelectorAll(q)].at(-1);
+
+            globalThis.newTab = () => {
+                let t = document.getElementById("new-tab").content.cloneNode(true);
+                lastMatch("#html-editors [role=tab]").after(t);
+                t = lastMatch("#html-editors [role=tab]");
+                let tp = document.getElementById("new-tabpanel").content.cloneNode(true);
+                lastMatch("#html-editors [role=tabpanel]").after(tp);
+                tp = lastMatch("#html-editors [role=tabpanel]");
+                const editor = new CodeFlask(tp, {
+                    language: "html",
+                });
+                editor.onUpdate(() => refreshOutput());
+                htmlEditors.push({
+                    title: t.innerText,
+                    editor,
+                });
+            };
         </script>
     </body>
 </html>

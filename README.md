@@ -17,6 +17,8 @@ This has a few upsides:
 
 ## Example
 
+You can explore live examples in the [platelet playground](https://angusjf.com/platelet/playground)
+
 ###### Template
 
 ```html
