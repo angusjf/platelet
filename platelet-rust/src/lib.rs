@@ -1,4 +1,10 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 use renderer::{render, Filesystem, RenderError};
 use serde_json::Value;
@@ -14,6 +20,17 @@ pub mod renderer;
 mod text_node;
 mod types;
 
+pub fn render_to_string<F>(
+    vars: &Value,
+    filename: &String,
+    filesystem: &F,
+) -> Result<String, RenderError>
+where
+    F: Filesystem,
+{
+    render(vars, Rc::new(HashMap::new()), &filename, filesystem).map(|x| x.to_string())
+}
+
 pub(crate) struct SingleFile {
     data: String,
 }
@@ -27,19 +44,38 @@ impl Filesystem for SingleFile {
     }
 }
 
-pub fn render_to_string<F>(
-    vars: &Value,
-    filename: &String,
-    filesystem: &F,
-) -> Result<String, RenderError>
-where
-    F: Filesystem,
-{
-    render(vars, Rc::new(HashMap::new()), &filename, filesystem).map(|x| x.to_string())
-}
-
 pub fn render_string_to_string(vars: &Value, html: String) -> Result<String, RenderError> {
     render_to_string(&vars, &"".to_owned(), &SingleFile { data: html })
+}
+
+struct PathFilesystem {}
+
+impl Filesystem for PathFilesystem {
+    fn read(&self, filename: &String) -> String {
+        let filename: PathBuf = filename.try_into().unwrap();
+        let mut file = File::open(filename.clone()).expect("bad file");
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
+        buf
+    }
+    fn move_to(&self, current: &String, path: &String) -> String {
+        let current: PathBuf = current.try_into().unwrap();
+        current
+            .parent()
+            .unwrap()
+            .join(path)
+            .to_str()
+            .unwrap()
+            .to_owned()
+    }
+}
+
+pub fn render_with_filesystem(vars: &Value, filename: &Path) -> Result<String, RenderError> {
+    render_to_string(
+        &vars,
+        &filename.to_str().unwrap().to_owned(),
+        &PathFilesystem {},
+    )
 }
 
 #[cfg(test)]
