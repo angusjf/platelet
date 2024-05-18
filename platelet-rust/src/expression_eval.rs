@@ -167,8 +167,16 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
             }
         }
         Expression::FunctionCall(fn_call) => {
-            let (id, _arg) = fn_call.as_ref();
-            Err(EvalError::UndefinedFunction(id.clone()))
+            let (id, arg) = fn_call.as_ref();
+            match id.as_str() {
+                "len" => match eval(arg, vars)? {
+                    Value::Array(a) => Ok(a.len().into()),
+                    Value::String(s) => Ok(s.len().into()),
+                    Value::Object(o) => Ok(o.len().into()),
+                    _ => Err(EvalError::TypeMismatch),
+                },
+                _ => Err(EvalError::UndefinedFunction(id.clone())),
+            }
         }
         Expression::UnaryOperation(un_op) => {
             let (UnaryOperator::Not, exp) = un_op.as_ref();
@@ -482,5 +490,29 @@ mod test {
                 .collect()
             ))
         );
+    }
+
+    #[test]
+    fn array_length() {
+        let vars = Map::new().into();
+        let mut exp = "len ( [1, 2, 3] )";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(3.into()));
+    }
+
+    #[test]
+    fn obj_length() {
+        let vars = Map::new().into();
+        let mut exp = "len ( {'a': 2, 'b': { 'c': 1}, 'd': 4} )";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(3.into()));
+    }
+
+    #[test]
+    fn str_length() {
+        let vars = Map::new().into();
+        let mut exp = "len ( 'abc' )";
+        let exp = expr(&mut exp).unwrap();
+        assert_eq!(eval(&exp, &vars), Ok(3.into()));
     }
 }

@@ -270,7 +270,7 @@ On objects arrays and strings, indexing operator `a[b]`
 
 On objects, dot access: `{"name": "angus"}.name`
 
-On arrays: `len(z)`
+On arrays, objects and strings: `len(z)`
 
 Expressions can be bracketed `(9 + 3) / 2 == 6`
 
