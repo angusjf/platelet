@@ -162,8 +162,20 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     }
                     _ => Err(EvalError::TypeMismatch),
                 },
-                BinaryOperator::Or => Ok(Value::Bool(truthy(&a) || truthy(&b))),
-                BinaryOperator::And => Ok(Value::Bool(truthy(&a) && truthy(&b))),
+                BinaryOperator::Or => {
+                    if truthy(&a) {
+                        Ok(a)
+                    } else {
+                        Ok(b)
+                    }
+                }
+                BinaryOperator::And => {
+                    if truthy(&a) {
+                        Ok(b)
+                    } else {
+                        Ok(false.into())
+                    }
+                }
             }
         }
         Expression::FunctionCall(fn_call) => {
@@ -359,7 +371,7 @@ mod test {
     #[test]
     fn boolean_or() {
         let vars = Map::new().into();
-        let mut exp = "false || 0 || \"\" || {} || []";
+        let mut exp = "false || 0 || \"\" || {} || [] || false";
         let exp = expr(&mut exp).unwrap();
         assert_eq!(eval(&exp, &vars), Ok(false.into()));
     }
