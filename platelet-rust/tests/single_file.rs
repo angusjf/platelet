@@ -24,6 +24,23 @@ fn templateless_html_doc() {
 }
 
 #[test]
+fn templateess_table_fragment() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        "<tr><td>Data 0</td><td>Value 0</td></tr>\
+         <tr><td>Data 1</td><td>Value 1</td></tr>"
+            .into(),
+    );
+    assert_eq!(
+        result.unwrap(),
+        "<tr><td>Data 0</td><td>Value 0</td></tr>\
+         <tr><td>Data 1</td><td>Value 1</td></tr>"
+    );
+}
+
+#[test]
 fn templated_text_node() {
     let vars = json!({ "hello": "world" });
 

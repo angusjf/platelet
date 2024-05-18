@@ -30,7 +30,7 @@ pub(crate) fn parse_html(html: String) -> N {
     if full_doc {
         parse(html)
     } else {
-        match parse_frag(html, "body".to_owned()) {
+        match parse_frag(html, "template".to_owned()) {
             N::Document { ref children } => match &children[..] {
                 [N::Element {
                     ref name,
