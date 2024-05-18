@@ -65,19 +65,19 @@ This has a few upsides:
 
 ```html
 <article>
-    <img ^src="blogpost.img_url">
-    <div>
-        <h2>
-            <a ^href="blogpost.link">{{blogpost.title}}</a>
-        <h2>
-        <template pl-html="blogpost.summary"></template>
-        <date>{{blogpost.date}}</date>
-    </div>
+  <img ^src="blogpost.img_url" />
+  <div>
+    <h2>
+      <a ^href="blogpost.link">{{blogpost.title}}</a>
+    </h2>
+    <template pl-html="blogpost.summary"></template>
+    <date>{{blogpost.date}}</date>
+  </div>
 </article>
 <style>
-    article {
-        display: flex;
-    }
+  article {
+    display: flex;
+  }
 </style>
 ```
 
