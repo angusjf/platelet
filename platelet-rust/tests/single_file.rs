@@ -345,3 +345,14 @@ fn bad_pl_is_name() {
         RenderError::BadPlIsName("".to_string())
     );
 }
+
+#[test]
+fn pl_for_and_pl_is() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<div pl-for='x in ["h1", "h2", "h3"]' pl-is='x'></div>"#.into(),
+    );
+    assert_eq!(result.unwrap(), "<h1></h1><h2></h2><h3></h3>");
+}

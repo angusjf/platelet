@@ -68,7 +68,7 @@ This has a few upsides:
     <img ^src="blogpost.img_url">
     <div>
         <h2>
-            <a ^href="blogpost.link">{{b.title}}</a>
+            <a ^href="blogpost.link">{{blogpost.title}}</a>
         <h2>
         <template pl-html="blogpost.summary"></template>
         <date>{{blogpost.date}}</date>

@@ -3,7 +3,6 @@ use serde_json::Value;
 pub(crate) enum Type {
     String,
     Number,
-    Integer,
     Object,
     Array,
     Bool,
@@ -15,7 +14,6 @@ impl Type {
         match self {
             Type::String => "string",
             Type::Number => "number",
-            Type::Integer => "integer",
             Type::Object => "object",
             Type::Array => "array",
             Type::Bool => "bool",

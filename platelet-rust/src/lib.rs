@@ -19,7 +19,7 @@ pub(crate) struct SingleFile {
 }
 
 impl Filesystem for SingleFile {
-    fn move_to(&self, current: &String, to: &String) -> String {
+    fn move_to(&self, _current: &String, to: &String) -> String {
         to.to_owned()
     }
     fn read(&self, _path: &String) -> String {
@@ -83,23 +83,6 @@ invalid for loop"#
         assert_eq!(
             result.unwrap_err().to_string(),
             (r#"FOR LOOP EVALUATION ERROR: Expected array, found number"#.to_owned())
-        );
-    }
-
-    #[test]
-    #[ignore]
-    fn expression_parser_error() {
-        let result = render_string_to_string(
-            &json!({ "hello": "hi" }),
-            "<h1 pl-if='x > {{ hello }} world".to_owned(),
-        );
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            (r#"FOR LOOP PARSER ERROR:
-x, in [1,2,3]
-^
-invalid for loop"#
-                .to_owned())
         );
     }
 }

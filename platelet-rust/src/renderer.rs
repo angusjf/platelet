@@ -65,7 +65,7 @@ where
     match node {
         Node::Doctype { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Document { children } => {
-            render_children(children, vars, slots, filename, filesystem)?;
+            render_children(children, &[vars], slots, filename, filesystem)?;
             return Ok(PostRenderOperation::Nothing);
         }
         Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
@@ -144,37 +144,26 @@ where
                 attrs_list.remove(fl_index);
 
                 let mut repeats = vec![];
+
                 if name == "template" {
-                    for ctx in contexts {
+                    for _ in &contexts {
                         for child in children.clone() {
-                            let mut child = child.clone();
-                            render_elem(
-                                &mut child,
-                                &ctx,
-                                slots.clone(),
-                                &None,
-                                &mut None,
-                                filename,
-                                filesystem,
-                            )?;
-                            repeats.push(child);
+                            repeats.push(child.clone());
                         }
                     }
                 } else {
-                    for ctx in contexts {
-                        let mut copy = node.clone();
-                        render_elem(
-                            &mut copy,
-                            &ctx,
-                            slots.clone(),
-                            &None,
-                            &mut None,
-                            filename,
-                            filesystem,
-                        )?;
-                        repeats.push(copy);
+                    for _ in &contexts {
+                        repeats.push(node.clone());
                     }
                 }
+
+                render_children(
+                    &mut repeats,
+                    &contexts.iter().collect::<Vec<_>>(),
+                    slots.clone(),
+                    filename,
+                    filesystem,
+                )?;
                 return Ok(PostRenderOperation::ReplaceMeWith(repeats));
             }
 
@@ -231,8 +220,8 @@ where
 
                 for (attr, val) in attrs_list.to_owned() {
                     if let Some(attr) = attr.strip_prefix("^") {
-                        let exp = expr(&mut val.as_ref()).unwrap();
-                        let v = eval(&exp, vars).unwrap();
+                        let exp = expr(&mut val.as_ref()).map_err(|_| RenderError::Parser)?;
+                        let v = eval(&exp, vars).map_err(RenderError::Eval)?;
                         new_context.insert(attr.to_string(), v);
                     }
                 }
@@ -243,6 +232,7 @@ where
                     &path,
                     filesystem,
                 )?;
+
                 match rendered {
                     Node::Document { children } => {
                         return Ok(PostRenderOperation::ReplaceMeWith(children))
@@ -285,7 +275,7 @@ where
 
             modify_attrs(attrs_list, vars)?;
 
-            render_children(children, vars, slots, filename, filesystem)?;
+            render_children(children, &[vars], slots, filename, filesystem)?;
 
             return Ok(PostRenderOperation::Nothing);
         }
@@ -294,7 +284,7 @@ where
 
 fn render_children<FS>(
     children: &mut Vec<Node>,
-    vars: &Value,
+    vars: &[&Value],
     slots: Rc<HashMap<String, Vec<Node>>>,
     filename: &String,
     filesystem: &FS,
@@ -310,7 +300,7 @@ where
         let child = children[i].borrow_mut();
         match render_elem(
             child,
-            vars,
+            vars[i.min(vars.len() - 1)],
             slots.clone(),
             &get_this,
             &mut set_this,
@@ -399,7 +389,7 @@ where
 
     let mut node = parse_html(html);
 
-    render_elem(
+    let _ = render_elem(
         &mut node, vars, slots, &None, &mut None, filename, filesystem,
     )?;
 

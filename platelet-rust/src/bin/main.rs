@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const USAGE: &str = "echo '{ \"some\": \"args\" }' | platelet [template.html]";
 
