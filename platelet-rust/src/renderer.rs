@@ -2,7 +2,7 @@ use core::fmt;
 use regex::Regex;
 use serde_json::{Map, Value};
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_eval::{eval, truthy, EvalError};
@@ -54,6 +54,7 @@ fn render_elem<FS>(
     node: &mut Node,
     vars: &Value,
     slots: Rc<HashMap<String, Vec<Node>>>,
+    already_included: &mut HashSet<(String, String)>,
     previous_conditional: &Option<bool>,
     next_neighbour_conditional: &mut Option<bool>,
     filename: &String,
@@ -65,7 +66,14 @@ where
     match node {
         Node::Doctype { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Document { children } => {
-            render_children(children, &[vars], slots, filename, filesystem)?;
+            render_children(
+                children,
+                &[vars],
+                slots,
+                already_included,
+                filename,
+                filesystem,
+            )?;
             return Ok(PostRenderOperation::Nothing);
         }
         Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
@@ -161,6 +169,7 @@ where
                     &mut repeats,
                     &contexts.iter().collect::<Vec<_>>(),
                     slots.clone(),
+                    already_included,
                     filename,
                     filesystem,
                 )?;
@@ -229,6 +238,7 @@ where
                 let rendered = render(
                     &Value::Object(new_context),
                     Rc::new(slots),
+                    already_included,
                     &path,
                     filesystem,
                 )?;
@@ -275,7 +285,33 @@ where
 
             modify_attrs(attrs_list, vars)?;
 
-            render_children(children, &[vars], slots, filename, filesystem)?;
+            render_children(
+                children,
+                &[vars],
+                slots,
+                already_included,
+                filename,
+                filesystem,
+            )?;
+
+            if name == "style" || name == "script" {
+                if let [Node::Text { content }] = &children[..] {
+                    let key = (
+                        content.to_owned(),
+                        name.to_owned()
+                            + &attrs_list
+                                .iter()
+                                .map(|(k, v)| format!("|{}={}|", k, v))
+                                .collect::<Vec<_>>()
+                                .join("///"),
+                    );
+                    if already_included.contains(&key) {
+                        return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
+                    } else {
+                        already_included.insert(key);
+                    }
+                }
+            }
 
             return Ok(PostRenderOperation::Nothing);
         }
@@ -286,6 +322,7 @@ fn render_children<FS>(
     children: &mut Vec<Node>,
     vars: &[&Value],
     slots: Rc<HashMap<String, Vec<Node>>>,
+    already_included_styles: &mut HashSet<(String, String)>,
     filename: &String,
     filesystem: &FS,
 ) -> Result<(), RenderError>
@@ -302,6 +339,7 @@ where
             child,
             vars[i.min(vars.len() - 1)],
             slots.clone(),
+            already_included_styles,
             &get_this,
             &mut set_this,
             filename,
@@ -379,6 +417,7 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), R
 pub(crate) fn render<FS>(
     vars: &Value,
     slots: Rc<HashMap<String, Vec<Node>>>,
+    already_included_styles: &mut HashSet<(String, String)>,
     filename: &String,
     filesystem: &FS,
 ) -> Result<Node, RenderError>
@@ -390,7 +429,14 @@ where
     let mut node = parse_html(html);
 
     let _ = render_elem(
-        &mut node, vars, slots, &None, &mut None, filename, filesystem,
+        &mut node,
+        vars,
+        slots,
+        already_included_styles,
+        &None,
+        &mut None,
+        filename,
+        filesystem,
     )?;
 
     Ok(node)

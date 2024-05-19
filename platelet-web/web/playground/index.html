@@ -59,16 +59,20 @@
                 border-bottom: none;
                 background-color: white;
             }
+
+            [aria-selected="true"] {
+                font-weight: bold;
+            }
         </style>
     </head>
     <body>
         <main class="editors">
             <div id="html-editors" class="tabs">
                 <div role="tablist">
-                    <button role="tab" onclick="tabClick(this)">index.html</button>
-                    <button role="tab" onclick="tabClick(this)">blogpost.html</button>
+                    <button role="tab" onclick="tabClick(this)" aria-selected="true">index.html</button>
+                    <button role="tab" onclick="tabClick(this)" aria-selected="false">blogpost.html</button>
                     <template id="new-tab">
-                        <button role="tab" onclick="tabClick(this)">unnamed.html</button>
+                        <button role="tab" onclick="tabClick(this)" aria-selected="false">unnamed.html</button>
                     </template>
                     <button onclick="newTab()">+</button>
                 </div>
@@ -86,11 +90,11 @@
         </main>
         <script type="importmap">
             {
-                "imports": {
+                "_imports": {
                     "codeflask": "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm",
                     "platelet": "/platelet/pkg/platelet_web.js"
                 },
-                "_imports": {
+                "imports": {
                     "codeflask": "http://localhost:8000/playground/codeflask.module.js",
                     "platelet": "http://localhost:8000/pkg/platelet_web.js"
                 }
@@ -190,7 +194,6 @@
                     for (let i = 0; i < htmlEditors.length; i++) {
                         files[htmlEditors[i].title] = htmlEditors[i].editor.code;
                     }
-                    console.log(htmlEditors, files);
                     let result = render_files(htmlEditors[0].title, JSON.stringify(files), jsonEditor.code);
                     htmlOutput.updateCode(result);
                     renderedOutput.srcdoc = result;
@@ -204,6 +207,8 @@
             hookUp();
 
             globalThis.tabClick = (e) => {
+                [...document.querySelectorAll("[aria-selected=true]")].forEach((e) => (e.ariaSelected = false));
+                e.ariaSelected = true;
                 const tablist = e.closest("[role=tablist]");
                 let index = [...tablist.children].indexOf(e);
                 let tabpanels = [...tablist.parentNode.querySelectorAll("[role=tabpanel]")];
@@ -225,11 +230,24 @@
                     language: "html",
                 });
                 editor.onUpdate(() => refreshOutput());
+                editor.updateCode("<!-- your code here -->");
+                t.innerText = nextTabTitle("new.html");
+                tabClick(t);
                 htmlEditors.push({
                     title: t.innerText,
                     editor,
                 });
             };
+
+            function nextTabTitle(desired) {
+                let titles = [...document.querySelectorAll("#html-editors [role=tab]")].map((e) => e.innerText);
+
+                while (titles.includes(desired)) {
+                    desired = "new-" + desired;
+                }
+
+                return desired;
+            }
         </script>
     </body>
 </html>

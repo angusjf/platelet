@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -28,7 +28,14 @@ pub fn render_to_string<F>(
 where
     F: Filesystem,
 {
-    render(vars, Rc::new(HashMap::new()), &filename, filesystem).map(|x| x.to_string())
+    render(
+        vars,
+        Rc::new(HashMap::new()),
+        &mut HashSet::new(),
+        &filename,
+        filesystem,
+    )
+    .map(|x| x.to_string())
 }
 
 pub(crate) struct SingleFile {

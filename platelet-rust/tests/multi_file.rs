@@ -220,7 +220,6 @@ fn example() {
                  <date>01/11/2025</date>\
                </div>\
               </article>\
-              <style>article {display: flex;}</style>\
            </body>\
          </html>"
     );

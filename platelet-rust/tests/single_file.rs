@@ -373,3 +373,28 @@ fn pl_for_and_pl_is() {
     );
     assert_eq!(result.unwrap(), "<h1></h1><h2></h2><h3></h3>");
 }
+
+#[test]
+fn only_include_styles_once() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<style> * { color: red; } </style><style> * { color: red; } </style>"#.into(),
+    );
+    assert_eq!(result.unwrap(), "<style> * { color: red; } </style>");
+}
+
+#[test]
+fn include_styles_or_scripts_twice_different_args() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<style attr> * { color: red; } </style><style> * { color: red; } </style>"#.into(),
+    );
+    assert_eq!(
+        result.unwrap(),
+        "<style attr=''> * { color: red; } </style><style> * { color: red; } </style>"
+    );
+}
