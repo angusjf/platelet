@@ -87,6 +87,13 @@
             <div class="editor">
                 <iframe sandbox id="rendered-output"></iframe>
             </div>
+            <dialog id="rename-tab">
+                <form method="dialog">
+                    <b>Rename tab:</b>
+                    <input name="new-tab-name" placeholder="filename.html" />
+                    <input type="submit" value="→" />
+                </form>
+            </dialog>
         </main>
         <script type="importmap">
             {
@@ -104,12 +111,7 @@
             import CodeFlask from "codeflask";
             import init, { render_files } from "platelet";
 
-            const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map((e, i) => ({
-                title: document.querySelectorAll("#html-editors [role=tablist] [role=tab]")[i].innerText,
-                editor: new CodeFlask(e, {
-                    language: "html",
-                }),
-            }));
+            const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map((e) => new CodeFlask(e, { language: "html" }));
 
             const jsonEditor = new CodeFlask("#json-editor", {
                 language: "javascript",
@@ -121,7 +123,7 @@
 
             const renderedOutput = document.getElementById("rendered-output");
 
-            htmlEditors[0].editor.updateCode(`<!doctype html>
+            htmlEditors[0].updateCode(`<!doctype html>
 <html>
   <head>
     <title>{{ title }}</title>
@@ -133,7 +135,7 @@
   </body>
 </html>`);
 
-            htmlEditors[1].editor.updateCode(`<article>
+            htmlEditors[1].updateCode(`<article>
   <img ^src="blogpost.img_url">
   <div>
     <h2>
@@ -181,7 +183,7 @@
             async function hookUp() {
                 await init();
 
-                htmlEditors.map((e) => e.editor.onUpdate(() => refreshOutput()));
+                htmlEditors.map((e) => e.onUpdate(() => refreshOutput()));
 
                 jsonEditor.onUpdate(() => refreshOutput());
 
@@ -191,10 +193,11 @@
             function refreshOutput() {
                 try {
                     let files = {};
+                    let titles = document.querySelectorAll("#html-editors [role=tablist] [role=tab]");
                     for (let i = 0; i < htmlEditors.length; i++) {
-                        files[htmlEditors[i].title] = htmlEditors[i].editor.code;
+                        files[titles[i].innerText] = htmlEditors[i].code;
                     }
-                    let result = render_files(htmlEditors[0].title, JSON.stringify(files), jsonEditor.code);
+                    let result = render_files(titles[0].innerText, JSON.stringify(files), jsonEditor.code);
                     htmlOutput.updateCode(result);
                     renderedOutput.srcdoc = result;
                 } catch (e) {
@@ -207,14 +210,33 @@
             hookUp();
 
             globalThis.tabClick = (e) => {
-                [...document.querySelectorAll("[aria-selected=true]")].forEach((e) => (e.ariaSelected = false));
-                e.ariaSelected = true;
-                const tablist = e.closest("[role=tablist]");
-                let index = [...tablist.children].indexOf(e);
-                let tabpanels = [...tablist.parentNode.querySelectorAll("[role=tabpanel]")];
-                tabpanels.forEach((tabpanel, i) => {
-                    tabpanel.hidden = i != index;
-                });
+                if (e.ariaSelected == "true") {
+                    // rename
+                    let dialog = document.getElementById("rename-tab");
+                    dialog.querySelector("input[name='new-tab-name']").value = e.innerText;
+                    dialog.showModal();
+                    let form = dialog.querySelector("form");
+                    let eventListener = form.addEventListener("submit", (event) => {
+                        // event.preventDefault();
+                        const formData = new FormData(form);
+
+                        let newName = formData.get("new-tab-name");
+                        if (newName) e.innerText = newName;
+
+                        refreshOutput();
+
+                        form.removeEventListener("submit", eventListener);
+                    });
+                } else {
+                    [...document.querySelectorAll("[aria-selected=true]")].forEach((e) => (e.ariaSelected = false));
+                    e.ariaSelected = true;
+                    const tablist = e.closest("[role=tablist]");
+                    let index = [...tablist.children].indexOf(e);
+                    let tabpanels = [...tablist.parentNode.querySelectorAll("[role=tabpanel]")];
+                    tabpanels.forEach((tabpanel, i) => {
+                        tabpanel.hidden = i != index;
+                    });
+                }
             };
 
             const lastMatch = (q) => [...document.querySelectorAll(q)].at(-1);
@@ -233,10 +255,7 @@
                 editor.updateCode("<!-- your code here -->");
                 t.innerText = nextTabTitle("new.html");
                 tabClick(t);
-                htmlEditors.push({
-                    title: t.innerText,
-                    editor,
-                });
+                htmlEditors.push(editor);
             };
 
             function nextTabTitle(desired) {
