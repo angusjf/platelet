@@ -192,11 +192,47 @@ The attributes set on the element (regular attributes or rendered `^` atributues
 
 ### `pl-slot`
 
-Marks the component as a slot.
-Optional name.
+On a `<slot>`, `pl-slot` (with an optional name) marks the element as a slot, to be replaced.
+
+On a `<template>`, `pl-slot` marks the template content as "what fills that slot".
+
+###### `index.html`
 
 ```html
-<slot pl-slot="left"></slot>
+<slot pl-src="layout.html">
+    <template pl-slot="sidebar">
+        <ul> ...
+    </template>
+    <template pl-slot="content">
+        <table> ...
+    </template>
+</slot>
+```
+
+###### `layout.html`
+
+```html
+<body>
+  <nav>
+    <slot pl-slot="sidebar"></slot>
+  </nav>
+  <main>
+    <slot pl-slot="content"></slot>
+  </main>
+</body>
+```
+
+###### Output
+
+```html
+<body>
+  <nav>
+    <ul> ...
+  </nav>
+  <main>
+    <table> ...
+  </main>
+</body>
 ```
 
 ### `pl-is`
