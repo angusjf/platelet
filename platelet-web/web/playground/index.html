@@ -90,7 +90,7 @@
             <dialog id="rename-tab">
                 <form method="dialog">
                     <b>Rename tab:</b>
-                    <input name="new-tab-name" placeholder="filename.html" />
+                    <input name="new-tab-name" placeholder="filename.html" autofocus />
                     <input type="submit" value="→" />
                 </form>
             </dialog>
@@ -216,8 +216,7 @@
                     dialog.querySelector("input[name='new-tab-name']").value = e.innerText;
                     dialog.showModal();
                     let form = dialog.querySelector("form");
-                    let eventListener = form.addEventListener("submit", (event) => {
-                        // event.preventDefault();
+                    let submit = (event) => {
                         const formData = new FormData(form);
 
                         let newName = formData.get("new-tab-name");
@@ -225,8 +224,10 @@
 
                         refreshOutput();
 
-                        form.removeEventListener("submit", eventListener);
-                    });
+                        form.removeEventListener("submit", submit);
+                    };
+
+                    form.addEventListener("submit", submit);
                 } else {
                     [...document.querySelectorAll("[aria-selected=true]")].forEach((e) => (e.ariaSelected = false));
                     e.ariaSelected = true;
