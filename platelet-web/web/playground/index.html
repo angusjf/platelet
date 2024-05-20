@@ -187,15 +187,26 @@
                 refreshOutput();
             }
 
+            let workerWorking = true;
+            let queuedWork = undefined;
             const compiler = new Worker("worker.js", {
                 type: "module",
             });
 
             compiler.addEventListener("message", (msg) => {
-                const result = msg.data;
+                const data = msg.data;
 
-                htmlOutput.updateCode(result);
-                renderedOutput.srcdoc = result;
+                if (data.ok) {
+                    renderedOutput.srcdoc = data.result;
+                    htmlOutput.updateCode(data.result);
+                } else {
+                    renderedOutput.srcdoc = "";
+                    htmlOutput.updateCode(data.error);
+                }
+
+                workerWorking = false;
+                if (queuedWork) sendToWorker(queuedWork);
+                queuedWork = undefined;
             });
 
             function refreshOutput() {
@@ -206,11 +217,18 @@
                     files[titles[i].innerText] = htmlEditors[i].code;
                 }
 
-                compiler.postMessage({
+                let message = {
                     root: titles[0].innerText,
                     files,
                     json: jsonEditor.code,
-                });
+                };
+
+                if (workerWorking) {
+                    queuedWork = message;
+                    return;
+                }
+
+                compiler.postMessage(message);
             }
 
             const dialog = document.getElementById("rename-tab");
