@@ -1,3 +1,5 @@
+use std::fmt::Write as _;
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Node {
     Text {
@@ -19,54 +21,87 @@ pub(crate) enum Node {
     },
 }
 
-impl Node {
-    pub(crate) fn to_string(&self) -> String {
-        fn html_text_safe(s: &str) -> String {
-            s.replace('&', "&amp;")
-                .replace('<', "&lt;")
-                .replace('>', "&gt;")
+fn html_text_safe(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn push_attr_value(s: &mut String, value: &String) {
+    // prefer single quotes - unless it allows us to avoid escaping
+    match (value.contains('\''), value.contains('"')) {
+        (true, true) => {
+            s.push('\'');
+            s.push_str(&value.replace("'", "&#39;"));
         }
-        fn html_attr_safe_quoted(s: &str) -> String {
-            // prefer single quotes - unless it allows us to avoid escaping
-            let (outer_quotes, sanetized) = match (s.contains('\''), s.contains('"')) {
-                (true, true) => ('\'', s.replace("'", "&#39;")),
-                (true, false) => ('"', s.to_owned()),
-                (false, true) => ('\'', s.to_owned()),
-                (false, false) => ('\'', s.to_owned()),
-            };
-
-            format!("{}{}{}", outer_quotes, sanetized, outer_quotes)
+        (true, false) => {
+            s.push('"');
+            s.push_str(&value);
         }
-        match self {
-            Node::Doctype { doctype } => format!("<!DOCTYPE {}>", html_text_safe(doctype)),
-            Node::Comment { content } => format!("<!--{}-->", html_text_safe(content)),
-            Node::Text { content } => html_text_safe(content),
-            Node::Element {
-                name,
-                attrs,
-                children,
-            } => {
-                let attrs_str = attrs
-                    .iter()
-                    .map(|(key, value)| format!(" {}={}", key, html_attr_safe_quoted(value)))
-                    .collect::<String>();
+        (false, true) => {
+            s.push('\'');
+            s.push_str(&value);
+        }
+        (false, false) => {
+            s.push('\'');
+            s.push_str(&value);
+        }
+    };
+}
 
-                let children_str = children
-                    .iter()
-                    .map(|child| child.to_string())
-                    .collect::<String>();
+fn push_node_as_string(s: &mut String, n: &Node) {
+    match n {
+        Node::Doctype { doctype } => {
+            s.push_str("<!DOCTYPE ");
+            s.push_str(&html_text_safe(doctype));
+            s.push('>')
+        }
+        Node::Comment { content } => write!(s, "<!--{}-->", html_text_safe(content)).unwrap(),
+        Node::Text { content } => s.push_str(&html_text_safe(content)),
+        Node::Element {
+            name,
+            attrs,
+            children,
+        } => {
+            s.push('<');
+            s.push_str(name);
 
-                match name.as_str() {
-                    "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link"
-                    | "meta" | "param" | "source" | "track" | "wbr" => {
-                        format!("<{}{}>", name, attrs_str)
+            for (key, value) in attrs {
+                s.push(' ');
+                s.push_str(key);
+                s.push('=');
+                push_attr_value(s, value);
+            }
+
+            match name.as_str() {
+                "area" | "base" | "br" | "col" | "embed" | "hr" | "img" | "input" | "link"
+                | "meta" | "param" | "source" | "track" | "wbr" => {
+                    s.push('>');
+                }
+                _ => {
+                    s.push('>');
+                    for child in children {
+                        push_node_as_string(s, child);
                     }
-                    _ => {
-                        format!("<{}{}>{}</{}>", name, attrs_str, children_str, name)
-                    }
+                    s.push('<');
+                    s.push('/');
+                    s.push_str(name);
+                    s.push('>');
                 }
             }
-            Node::Document { children } => children.iter().map(|child| child.to_string()).collect(),
         }
+        Node::Document { children } => {
+            for child in children {
+                push_node_as_string(s, child);
+            }
+        }
+    }
+}
+
+impl Node {
+    pub(crate) fn to_string(&self) -> String {
+        let mut buf = String::with_capacity(0);
+        push_node_as_string(&mut buf, self);
+        buf
     }
 }
