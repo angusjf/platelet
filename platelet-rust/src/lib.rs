@@ -1,4 +1,3 @@
-#![feature(test)]
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -6,8 +5,6 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
-extern crate test;
-use test::Bencher;
 
 use renderer::{render, Filesystem, RenderError};
 use serde_json::Value;
@@ -130,24 +127,5 @@ invalid for loop"#
             result.unwrap_err().to_string(),
             (r#"FOR LOOP EVALUATION ERROR: Expected array, found number"#.to_owned())
         );
-    }
-
-    #[allow(soft_unstable)]
-    #[bench]
-    fn node_to_string(b: &mut Bencher) {
-        let vars = json!({"examples": ["this", "that"]});
-
-        b.iter(|| {
-            render(
-                &vars,
-                Rc::new(HashMap::new()),
-                &mut HashSet::new(),
-                &String::new(),
-                &SingleFile {
-                    data: "<h1>hello world</h1>".to_owned(),
-                },
-            )
-            .unwrap();
-        });
     }
 }
