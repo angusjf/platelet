@@ -100,11 +100,7 @@
             {
                 "imports": {
                     "codeflask": "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm",
-                    "platelet": "/platelet/pkg/platelet_web.js"
-                },
-                "_imports": {
-                    "codeflask": "http://localhost:8000/playground/codeflask.module.js",
-                    "platelet": "http://localhost:8000/pkg/platelet_web.js"
+                    "platelet": "https://angusjf.com/platelet/pkg/platelet_web.js"
                 }
             }
         </script>
@@ -191,21 +187,30 @@
                 refreshOutput();
             }
 
+            const compiler = new Worker("worker.js", {
+                type: "module",
+            });
+
+            compiler.addEventListener("message", (msg) => {
+                const result = msg.data;
+
+                htmlOutput.updateCode(result);
+                renderedOutput.srcdoc = result;
+            });
+
             function refreshOutput() {
-                try {
-                    let files = {};
-                    let titles = document.querySelectorAll("#html-editors [role=tablist] [role=tab]");
-                    for (let i = 0; i < htmlEditors.length; i++) {
-                        files[titles[i].innerText] = htmlEditors[i].code;
-                    }
-                    let result = render_files(titles[0].innerText, JSON.stringify(files), jsonEditor.code);
-                    htmlOutput.updateCode(result);
-                    renderedOutput.srcdoc = result;
-                } catch (e) {
-                    console.error(e);
-                    htmlOutput.updateCode(e.toString());
-                    renderedOutput.srcdoc = "";
+                let files = {};
+                let titles = document.querySelectorAll("#html-editors [role=tablist] [role=tab]");
+
+                for (let i = 0; i < htmlEditors.length; i++) {
+                    files[titles[i].innerText] = htmlEditors[i].code;
                 }
+
+                compiler.postMessage({
+                    root: titles[0].innerText,
+                    files,
+                    json: jsonEditor.code,
+                });
             }
 
             const dialog = document.getElementById("rename-tab");
