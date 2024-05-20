@@ -105,8 +105,8 @@
             }
         </script>
         <script type="module">
-            import CodeFlask from "codeflask";
-            import init, { render_files } from "platelet";
+            import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
+            import init from "https://angusjf.com/platelet/pkg/platelet_web.js";
 
             const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map((e) => new CodeFlask(e, { language: "html" }));
 
@@ -205,7 +205,7 @@
                 }
 
                 workerWorking = false;
-                if (queuedWork) sendToWorker(queuedWork);
+                if (queuedWork) compiler.postMessage(queuedWork);
                 queuedWork = undefined;
             });
 
