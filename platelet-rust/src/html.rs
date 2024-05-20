@@ -33,18 +33,22 @@ fn push_attr_value(s: &mut String, value: &String) {
         (true, true) => {
             s.push('\'');
             s.push_str(&value.replace("'", "&#39;"));
+            s.push('\'');
         }
         (true, false) => {
             s.push('"');
             s.push_str(&value);
+            s.push('"');
         }
         (false, true) => {
             s.push('\'');
             s.push_str(&value);
+            s.push('\'');
         }
         (false, false) => {
             s.push('\'');
             s.push_str(&value);
+            s.push('\'');
         }
     };
 }
@@ -100,7 +104,7 @@ fn push_node_as_string(s: &mut String, n: &Node) {
 
 impl Node {
     pub(crate) fn to_string(&self) -> String {
-        let mut buf = String::with_capacity(0);
+        let mut buf = String::with_capacity(1000);
         push_node_as_string(&mut buf, self);
         buf
     }
