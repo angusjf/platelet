@@ -394,16 +394,28 @@ fn attrify(val: &Value) -> Option<String> {
 }
 
 fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), RenderError> {
+    let mut ret: Result<(), RenderError> = Ok(());
+
     attrs.retain_mut(|(name_original, val)| {
         if let Some(name) = name_original.strip_prefix('^') {
-            let exp = expr(&mut val.as_ref()).unwrap();
-            let v = eval(&exp, vars).unwrap();
-            match attrify(&v) {
-                None => false,
-                Some(s) => {
-                    *name_original = name.to_owned();
-                    *val = s;
-                    true
+            match expr(&mut val.as_ref()) {
+                Ok(exp) => match eval(&exp, vars) {
+                    Ok(v) => match attrify(&v) {
+                        None => false,
+                        Some(s) => {
+                            *name_original = name.to_owned();
+                            *val = s;
+                            true
+                        }
+                    },
+                    Err(e) => {
+                        ret = Err(RenderError::Eval(e));
+                        false
+                    }
+                },
+                Err(_e) => {
+                    ret = Err(RenderError::Parser);
+                    false
                 }
             }
         } else {
@@ -411,7 +423,7 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), R
         }
     });
 
-    Ok(())
+    ret
 }
 
 pub(crate) fn render<FS>(
