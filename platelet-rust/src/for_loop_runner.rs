@@ -1,25 +1,42 @@
 use serde_json::Value;
 
 use crate::{
-    expression_eval::eval,
+    expression_eval::{eval, EvalError},
     for_loop_parser::ForLoop,
     types::{type_of, Type},
 };
 
 #[derive(Debug)]
 pub(crate) enum Error {
-    Simple,
-    IndexedObjectOrKeyValue,
-    IndexedKeyValue,
+    TypeMismatch { expected: Vec<Type>, found: Type },
+    Eval(EvalError),
 }
 
 pub(crate) fn for_loop_runner(
     for_loop: &ForLoop,
     base_context: &Value,
 ) -> Result<Vec<Value>, String> {
+    fl(for_loop, base_context).map_err(|e| match e {
+        Error::TypeMismatch { expected, found } => {
+            format!(
+                "Expected {}, found {}",
+                expected
+                    .iter()
+                    .map(Type::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" or "),
+                found.to_string()
+            )
+        }
+
+        Error::Eval(e) => format!("{:?}", e),
+    })
+}
+
+fn fl(for_loop: &ForLoop, base_context: &Value) -> Result<Vec<Value>, Error> {
     match for_loop {
         ForLoop::Simple(id, exp) => {
-            let val = eval(exp, base_context).unwrap();
+            let val = eval(exp, base_context).map_err(Error::Eval)?;
             match val {
                 Value::Array(vec) => Ok(vec
                     .iter()
@@ -29,11 +46,14 @@ pub(crate) fn for_loop_runner(
                         Value::Object(obj)
                     })
                     .collect()),
-                _ => Err((Error::Simple, val)),
+                _ => Err(Error::TypeMismatch {
+                    expected: vec![Type::Array],
+                    found: type_of(&val),
+                }),
             }
         }
         ForLoop::IndexedObjectOrKeyValue(ids, exp) => {
-            let val = eval(exp, base_context).unwrap();
+            let val = eval(exp, base_context).map_err(Error::Eval)?;
             match val {
                 Value::Array(vec) => {
                     let (id, indexer) = ids;
@@ -60,11 +80,14 @@ pub(crate) fn for_loop_runner(
                         })
                         .collect())
                 }
-                _ => Err((Error::IndexedObjectOrKeyValue, val)),
+                _ => Err(Error::TypeMismatch {
+                    expected: vec![Type::Array, Type::Object],
+                    found: type_of(&val),
+                }),
             }
         }
         ForLoop::IndexedKeyValue(ids, exp) => {
-            let val = eval(exp, base_context).unwrap();
+            let val = eval(exp, base_context).map_err(Error::Eval)?;
             match val {
                 Value::Object(vec) => {
                     let (key_id, value_id, indexer) = ids;
@@ -80,25 +103,11 @@ pub(crate) fn for_loop_runner(
                         })
                         .collect())
                 }
-                _ => Err((Error::IndexedKeyValue, val)),
+                _ => Err(Error::TypeMismatch {
+                    expected: vec![Type::Object],
+                    found: type_of(&val),
+                }),
             }
         }
     }
-    .map_err(|(err, val)| {
-        let expected = match err {
-            Error::Simple => &[Type::Array][..],
-            Error::IndexedObjectOrKeyValue => &[Type::Array, Type::Object],
-            Error::IndexedKeyValue => &[Type::Object],
-        };
-
-        format!(
-            "Expected {}, found {}",
-            expected
-                .iter()
-                .map(Type::to_string)
-                .collect::<Vec<_>>()
-                .join(" or "),
-            type_of(&val).to_string()
-        )
-    })
 }
