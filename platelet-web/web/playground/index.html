@@ -338,6 +338,7 @@
                 tp = lastMatch("#html-editors [role=tabpanel]");
                 const editor = new CodeFlask(tp, {
                     language: "html",
+                    defaultTheme: false,
                 });
                 editor.onUpdate(() => refreshOutput());
                 editor.updateCode("<!-- your code here -->");
