@@ -6,6 +6,22 @@
         <style>
             :root {
                 font-family: sans-serif;
+                --black: #24292e;
+                --white: white;
+                --grey: #6a737d;
+                --light-grey: lightgrey;
+                --red: #d73a49;
+                --green: #22863a;
+                --blue: #005cc5;
+                @media (prefers-color-scheme: dark) {
+                    --black: #c9d1d9;
+                    --white: #0d1117;
+                    --grey: lightgrey;
+                    --light-grey: #6a737d;
+                    --red: #ffa657;
+                    --green: #7ee787;
+                    --blue: #79c0ff;
+                }
             }
 
             body {
@@ -13,19 +29,15 @@
                 height: 100vh;
                 display: flex;
                 flex-direction: column;
-            }
-
-            html body .codeflask__flatten {
-                font-size: 1rem;
-            }
-            body .codeflask {
-                background: transparent;
+                color: var(--black);
+                background-color: var(--white);
             }
 
             iframe {
                 width: 100%;
                 height: 100%;
                 border: none;
+                background: white;
             }
 
             .editors {
@@ -40,7 +52,7 @@
 
             .editor {
                 position: relative;
-                border: 2px dashed lightgrey;
+                border: 2px dashed var(--light-grey);
             }
 
             .tabs {
@@ -56,13 +68,75 @@
                 cursor: pointer;
                 appearance: none;
                 font-size: 1rem;
-                border: 2px solid lightgrey;
+                border: 2px solid var(--light-grey);
                 border-bottom: none;
-                background-color: white;
+                background-color: var(--white);
+                color: var(--black);
             }
 
             [aria-selected="true"] {
                 font-weight: bold;
+            }
+
+            .codeflask {
+                background: var(--white);
+            }
+
+            .codeflask .codeflask__flatten {
+                font-size: 1rem;
+            }
+            .codeflask .codeflask__textarea.codeflask__flatten {
+                color: transparent;
+            }
+
+            .codeflask .token.doctype {
+                color: var(--grey);
+            }
+
+            .codeflask .token.punctuation {
+                color: var(--black);
+            }
+
+            .codeflask .token.keyword {
+                color: var(--red);
+            }
+
+            .codeflask .token.operator {
+                color: var(--red);
+            }
+
+            .codeflask .token.string {
+                color: var(--green);
+            }
+
+            .codeflask .token.comment {
+                color: var(--grey);
+            }
+
+            .codeflask .token.boolean {
+                color: var(--blue);
+            }
+
+            .codeflask .token.number {
+                color: var(--red);
+            }
+
+            .codeflask .token.selector {
+                color: var(--blue);
+            }
+
+            .codeflask .token.property {
+                color: var(--blue);
+            }
+
+            .codeflask .token.tag {
+                color: var(--green);
+            }
+            .codeflask .token.attr-name {
+                color: var(--blue);
+            }
+            .codeflask .token.attr-value {
+                color: var(--red);
             }
         </style>
     </head>
@@ -99,14 +173,22 @@
         <script type="module">
             import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
 
-            const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map((e) => new CodeFlask(e, { language: "html" }));
+            const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map(
+                (e) =>
+                    new CodeFlask(e, {
+                        language: "html",
+                        defaultTheme: false,
+                    }),
+            );
 
             const jsonEditor = new CodeFlask("#json-editor", {
                 language: "javascript",
+                defaultTheme: false,
             });
             const htmlOutput = new CodeFlask("#html-output", {
                 language: "html",
                 readonly: true,
+                defaultTheme: false,
             });
 
             const renderedOutput = document.getElementById("rendered-output");
