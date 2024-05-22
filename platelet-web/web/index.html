@@ -122,22 +122,31 @@
     <body>
         <main>
             <article>
-                <div style="display: flex; flex-grow: 1; justify-content: center; align-items: center;">
+                <div style="display: flex; flex-grow: 1; justify-content: center; align-items: center">
                     <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
                         <ellipse cx="100" cy="100" fill="#ddd" rx="100" ry="100" />
                         <ellipse cx="100" cy="100" fill="#eee" rx="75" ry="75" />
+                        <ellipse cx="142" cy="100" fill="rgba(255,182,203,0.5)" rx="20" ry="10" />
+                        <ellipse cx="38" cy="100" fill="rgba(255,182,203,0.5)" rx="20" ry="10" />
                         <text id="platelet-mascot" fill="#000" font-family="Overpass, sans-serif" font-size="45" font-style="normal" font-weight="bold" text-anchor="middle" x="90" y="100" xml:space="preserve">^ &nbsp;_ &nbsp;^</text>
                     </svg>
-                    <script type='module'>
-                        const mascot = document.getElementById('platelet-mascot');
-                        const start = () => setTimeout(() => {
-                                mascot.innerHTML = '- &nbsp;_ &nbsp;-'
-                                setTimeout(() => {
-                                    mascot.innerHTML = '^ &nbsp;_ &nbsp;^'
-                                    start()
-                                }, Math.random() * 100 + 100)
-                            }, Math.random() * 4000 + 1000)
-                        start()
+                    <script type="module">
+                        const mascot = document.getElementById("platelet-mascot");
+                        const start = () =>
+                            setTimeout(
+                                () => {
+                                    mascot.innerHTML = "- &nbsp;_ &nbsp;-";
+                                    setTimeout(
+                                        () => {
+                                            mascot.innerHTML = "^ &nbsp;_ &nbsp;^";
+                                            start();
+                                        },
+                                        Math.random() * 100 + 100,
+                                    );
+                                },
+                                Math.random() * 4000 + 1000,
+                            );
+                        start();
                     </script>
                 </div>
                 <div class="title">
