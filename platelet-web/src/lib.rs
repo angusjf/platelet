@@ -26,7 +26,7 @@ impl Filesystem<String> for FileMap {
 #[wasm_bindgen]
 pub fn render_files(filename: String, files: String, context: String) -> Result<String, String> {
     let context: Value = serde_json::from_str(&context)
-        .map_err(|e| "Could not deserialize: ".to_owned() + &e.to_string());
+        .map_err(|e| "Could not deserialize: ".to_owned() + &e.to_string())?;
 
     let filesystem: HashMap<String, String> = serde_json::from_str(&files).unwrap();
 
