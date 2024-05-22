@@ -5,7 +5,6 @@ self.onmessage = async function (evt) {
   if (!render_files) {
     let platelet = await import("https://angusjf.com/platelet/pkg/platelet_web.js");
     await platelet.default();
-    console.log(render_files);
     render_files = platelet.render_files;
   }
   try {
