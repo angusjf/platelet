@@ -75,6 +75,7 @@ impl Filesystem<PathFilesystemError> for PathFilesystem {
             .map_err(|e| PathFilesystemError::ReadError(filename.to_owned(), e))?;
         Ok(buf)
     }
+
     fn move_to(&self, current: &String, path: &String) -> Result<String, PathFilesystemError> {
         let current_path: PathBuf = current.try_into().unwrap();
         let new_path = current_path

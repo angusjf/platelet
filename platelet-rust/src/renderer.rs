@@ -162,9 +162,9 @@ where
 
                 if name == "template" {
                     for _ in &contexts {
-                        for child in children.clone() {
-                            repeats.push(child.clone());
-                        }
+                        repeats.push(Node::Document {
+                            children: children.clone(),
+                        })
                     }
                 } else {
                     for _ in &contexts {
@@ -254,7 +254,9 @@ where
 
                 match rendered {
                     Node::Document { children } => {
-                        return Ok(PostRenderOperation::ReplaceMeWith(children))
+                        return Ok(PostRenderOperation::ReplaceMeWith(vec![Node::Document {
+                            children: children.clone(),
+                        }]))
                     }
                     _ => panic!("I know that render only ever returns a document"),
                 }

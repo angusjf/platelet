@@ -226,7 +226,6 @@ fn example() {
 }
 
 #[test]
-#[ignore]
 fn pl_for_lots_of_children() {
     let vars = Map::new().into();
 
@@ -247,9 +246,9 @@ fn pl_for_lots_of_children() {
         result.unwrap(),
         "<ol><div>0</div>(my)\
         <script>console.log()</script>\
-        <div>1</div>(duckworth)\
-        <div>2</div>(said)\
-        <div>3</div>(said)\
+        <div>1</div>(cousin)\
+        <div>2</div>(carl)\
+        <div>3</div>(duckworth)\
         <div>4</div>(said)</ol>"
     );
 }
