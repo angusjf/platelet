@@ -224,3 +224,32 @@ fn example() {
          </html>"
     );
 }
+
+#[test]
+#[ignore]
+fn pl_for_lots_of_children() {
+    let vars = Map::new().into();
+
+    let result = render_to_string(
+        &vars,
+        &"index.html".into(),
+        &MockMultiFile {
+            data: HashMap::from([
+                (
+                    "index.html".into(),
+                    r#"<ol><slot ^i=i ^s=s pl-for='(s, i) in ["my", "cousin", "carl", "duckworth", "said"]' pl-src="embed.html"></slot></ol>"#.to_owned(),
+                ),
+                ("embed.html".into(), "<div>{{i}}</div>({{s}})<script>console.log()</script>".to_owned()),
+            ]),
+        },
+    );
+    assert_eq!(
+        result.unwrap(),
+        "<ol><div>0</div>(my)\
+        <script>console.log()</script>\
+        <div>1</div>(duckworth)\
+        <div>2</div>(said)\
+        <div>3</div>(said)\
+        <div>4</div>(said)</ol>"
+    );
+}

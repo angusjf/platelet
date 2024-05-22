@@ -294,14 +294,18 @@ where
 
             modify_attrs(attrs_list, vars)?;
 
-            render_children(
-                children,
-                &[vars],
-                slots,
-                already_included,
-                filename,
-                filesystem,
-            )?;
+            if name != "script" {
+                render_children(
+                    children,
+                    &[vars],
+                    slots,
+                    already_included,
+                    filename,
+                    filesystem,
+                )?;
+            } else {
+                // TODO
+            }
 
             if name == "style" || name == "script" {
                 if let [Node::Text { content }] = &children[..] {

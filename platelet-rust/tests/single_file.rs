@@ -398,3 +398,17 @@ fn include_styles_or_scripts_twice_different_args() {
         "<style attr=''> * { color: red; } </style><style> * { color: red; } </style>"
     );
 }
+
+#[test]
+fn no_script_injection() {
+    let vars = json!({"username": "'); alert('you have been hacked'); let x = ('"});
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<script> console.log('{{username}}') </script>"#.into(),
+    );
+    assert_eq!(
+        result.unwrap(),
+        "<script> console.log('{{username}}') </script>"
+    );
+}
