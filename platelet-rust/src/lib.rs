@@ -1,7 +1,8 @@
+use core::fmt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
-    io::Read,
+    io::{self, Read},
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -20,13 +21,14 @@ pub mod renderer;
 mod text_node;
 mod types;
 
-pub fn render_to_string<F>(
+pub fn render_to_string<F, FilesystemError>(
     vars: &Value,
     filename: &String,
     filesystem: &F,
-) -> Result<String, RenderError>
+) -> Result<String, RenderError<FilesystemError>>
 where
-    F: Filesystem,
+    F: Filesystem<FilesystemError>,
+    FilesystemError: fmt::Debug,
 {
     render(
         vars,
@@ -42,42 +44,56 @@ pub(crate) struct SingleFile {
     data: String,
 }
 
-impl Filesystem for SingleFile {
-    fn move_to(&self, _current: &String, to: &String) -> String {
-        to.to_owned()
+impl Filesystem<()> for SingleFile {
+    fn move_to(&self, _current: &String, to: &String) -> Result<String, ()> {
+        Ok(to.to_owned())
     }
-    fn read(&self, _path: &String) -> String {
-        self.data.clone()
+    fn read(&self, _path: &String) -> Result<String, ()> {
+        Ok(self.data.clone())
     }
 }
 
-pub fn render_string_to_string(vars: &Value, html: String) -> Result<String, RenderError> {
+pub fn render_string_to_string(vars: &Value, html: String) -> Result<String, RenderError<()>> {
     render_to_string(&vars, &"".to_owned(), &SingleFile { data: html })
 }
 
 struct PathFilesystem {}
 
-impl Filesystem for PathFilesystem {
-    fn read(&self, filename: &String) -> String {
-        let filename: PathBuf = filename.try_into().unwrap();
-        let mut file = File::open(filename.clone()).expect("bad file");
+#[derive(Debug)]
+pub enum PathFilesystemError {
+    ReadError(String, io::Error),
+    NoParent(String),
+    FailedToStringifyPath(PathBuf),
+}
+
+impl Filesystem<PathFilesystemError> for PathFilesystem {
+    fn read(&self, filename: &String) -> Result<String, PathFilesystemError> {
+        let path: PathBuf = filename.try_into().unwrap();
+        let mut file = File::open(path.clone()).expect("bad file");
         let mut buf = String::new();
-        file.read_to_string(&mut buf).unwrap();
-        buf
+        file.read_to_string(&mut buf)
+            .map_err(|e| PathFilesystemError::ReadError(filename.to_owned(), e))?;
+        Ok(buf)
     }
-    fn move_to(&self, current: &String, path: &String) -> String {
-        let current: PathBuf = current.try_into().unwrap();
-        current
+    fn move_to(&self, current: &String, path: &String) -> Result<String, PathFilesystemError> {
+        let current_path: PathBuf = current.try_into().unwrap();
+        let new_path = current_path
             .parent()
-            .unwrap()
-            .join(path)
+            .ok_or(PathFilesystemError::NoParent(current.to_owned()))?
+            .join(path);
+        Ok(new_path
             .to_str()
-            .unwrap()
-            .to_owned()
+            .ok_or(PathFilesystemError::FailedToStringifyPath(
+                new_path.to_owned(),
+            ))?
+            .to_owned())
     }
 }
 
-pub fn render_with_filesystem(vars: &Value, filename: &Path) -> Result<String, RenderError> {
+pub fn render_with_filesystem(
+    vars: &Value,
+    filename: &Path,
+) -> Result<String, RenderError<PathFilesystemError>> {
     render_to_string(
         &vars,
         &filename.to_str().unwrap().to_owned(),

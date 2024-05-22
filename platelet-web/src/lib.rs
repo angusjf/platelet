@@ -9,13 +9,17 @@ struct FileMap {
     files: HashMap<String, String>,
 }
 
-impl Filesystem for FileMap {
-    fn move_to(&self, _current: &String, path: &String) -> String {
-        path.to_owned()
+impl Filesystem<String> for FileMap {
+    fn move_to(&self, _current: &String, path: &String) -> Result<String, String> {
+        Ok(path.to_owned())
     }
 
-    fn read(&self, file: &String) -> String {
-        self.files.get(file).unwrap().to_owned()
+    fn read(&self, file: &String) -> Result<String, String> {
+        Ok(self
+            .files
+            .get(file)
+            .ok_or(format!("FILESYSTEM ERROR: Could not find file `{}`", file))?
+            .to_owned())
     }
 }
 

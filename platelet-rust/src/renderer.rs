@@ -3,6 +3,7 @@ use regex::Regex;
 use serde_json::{Map, Value};
 use std::borrow::BorrowMut;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use crate::expression_eval::{eval, truthy, EvalError};
@@ -13,9 +14,9 @@ use crate::html_parser::parse_html;
 use crate::text_node::render_text_node;
 use crate::{for_loop_runner, text_node};
 
-pub trait Filesystem {
-    fn move_to(&self, current: &String, path: &String) -> String;
-    fn read(&self, file: &String) -> String;
+pub trait Filesystem<E> {
+    fn move_to(&self, current: &String, path: &String) -> Result<String, E>;
+    fn read(&self, file: &String) -> Result<String, E>;
 }
 
 enum PostRenderOperation {
@@ -24,7 +25,7 @@ enum PostRenderOperation {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum RenderError {
+pub enum RenderError<FilesystemError> {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
     Parser,
@@ -33,9 +34,13 @@ pub enum RenderError {
     ForLoopEval(String),
     UndefinedSlot(String),
     BadPlIsName(String),
+    FilesystemError(FilesystemError),
 }
 
-impl fmt::Display for RenderError {
+impl<FilesystemError> fmt::Display for RenderError<FilesystemError>
+where
+    FilesystemError: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RenderError::IllegalDirective(e) => write!(f, "ILLEGAL DIRECTIVE: {}", e),
@@ -46,11 +51,12 @@ impl fmt::Display for RenderError {
             RenderError::ForLoopEval(e) => write!(f, "FOR LOOP EVALUATION ERROR: {}", e),
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
             RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
+            RenderError::FilesystemError(e) => write!(f, "FILE SYSTEM ERROR: {:?}", e),
         }
     }
 }
 
-fn render_elem<FS>(
+fn render_elem<FS, FilesystemError>(
     node: &mut Node,
     vars: &Value,
     slots: Rc<HashMap<String, Vec<Node>>>,
@@ -59,9 +65,10 @@ fn render_elem<FS>(
     next_neighbour_conditional: &mut Option<bool>,
     filename: &String,
     filesystem: &FS,
-) -> Result<PostRenderOperation, RenderError>
+) -> Result<PostRenderOperation, RenderError<FilesystemError>>
 where
-    FS: Filesystem,
+    FS: Filesystem<FilesystemError>,
+    FilesystemError: fmt::Debug,
 {
     match node {
         Node::Doctype { .. } => return Ok(PostRenderOperation::Nothing),
@@ -204,7 +211,9 @@ where
             if let Some(src_index) = attrs_list.iter().position(|(name, _)| name == "pl-src") {
                 let (_, src) = &attrs_list[src_index];
 
-                let path = filesystem.move_to(filename, src);
+                let path = filesystem
+                    .move_to(filename, src)
+                    .map_err(RenderError::FilesystemError)?;
 
                 let mut slots: HashMap<_, Vec<Node>> = HashMap::new();
 
@@ -318,16 +327,17 @@ where
     }
 }
 
-fn render_children<FS>(
+fn render_children<FS, FilesystemError>(
     children: &mut Vec<Node>,
     vars: &[&Value],
     slots: Rc<HashMap<String, Vec<Node>>>,
     already_included_styles: &mut HashSet<(String, String)>,
     filename: &String,
     filesystem: &FS,
-) -> Result<(), RenderError>
+) -> Result<(), RenderError<FilesystemError>>
 where
-    FS: Filesystem,
+    FS: Filesystem<FilesystemError>,
+    FilesystemError: fmt::Debug,
 {
     let mut i = 0;
 
@@ -393,8 +403,11 @@ fn attrify(val: &Value) -> Option<String> {
     }
 }
 
-fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), RenderError> {
-    let mut ret: Result<(), RenderError> = Ok(());
+fn modify_attrs<FileSystemError>(
+    attrs: &mut Vec<(String, String)>,
+    vars: &Value,
+) -> Result<(), RenderError<FileSystemError>> {
+    let mut ret: Result<(), RenderError<FileSystemError>> = Ok(());
 
     attrs.retain_mut(|(name_original, val)| {
         if let Some(name) = name_original.strip_prefix('^') {
@@ -426,17 +439,20 @@ fn modify_attrs(attrs: &mut Vec<(String, String)>, vars: &Value) -> Result<(), R
     ret
 }
 
-pub(crate) fn render<FS>(
+pub(crate) fn render<FS, FileSystemError>(
     vars: &Value,
     slots: Rc<HashMap<String, Vec<Node>>>,
     already_included_styles: &mut HashSet<(String, String)>,
     filename: &String,
     filesystem: &FS,
-) -> Result<Node, RenderError>
+) -> Result<Node, RenderError<FileSystemError>>
 where
-    FS: Filesystem,
+    FS: Filesystem<FileSystemError>,
+    FileSystemError: fmt::Debug,
 {
-    let html = filesystem.read(filename);
+    let html = filesystem
+        .read(filename)
+        .map_err(RenderError::FilesystemError)?;
 
     let mut node = parse_html(html);
 

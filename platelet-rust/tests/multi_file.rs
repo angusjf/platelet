@@ -7,12 +7,12 @@ struct MockMultiFile {
     data: HashMap<String, String>,
 }
 
-impl Filesystem for MockMultiFile {
-    fn read(&self, path: &String) -> String {
-        self.data.get(path).unwrap().clone()
+impl Filesystem<()> for MockMultiFile {
+    fn read(&self, path: &String) -> Result<String, ()> {
+        Ok(self.data.get(path).unwrap().clone())
     }
-    fn move_to(&self, _current: &String, path: &String) -> String {
-        path.to_owned()
+    fn move_to(&self, _current: &String, path: &String) -> Result<String, ()> {
+        Ok(path.to_owned())
     }
 }
 
