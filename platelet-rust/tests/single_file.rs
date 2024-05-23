@@ -412,3 +412,15 @@ fn no_script_injection() {
         "<script> console.log('{{username}}') </script>"
     );
 }
+
+#[test]
+fn no_html_text_injection() {
+    let vars =
+        json!({ "username": "username</div><script>alert('you have been hacked');</script>'" });
+
+    let result = render_string_to_string(&vars, r#"<div>{{username}}</div>"#.into());
+    assert_eq!(
+        result.unwrap(),
+        "<div>username&lt;/div&gt;&lt;script&gt;alert('you have been hacked');&lt;/script&gt;'</div>"
+    );
+}
