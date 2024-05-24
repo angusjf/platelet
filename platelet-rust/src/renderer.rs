@@ -56,6 +56,11 @@ where
     }
 }
 
+fn parse_eval<T>(exp: &String, vars: &Value) -> Result<Value, RenderError<T>> {
+    let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
+    eval(&exp, vars).map_err(RenderError::Eval)
+}
+
 fn render_elem<FS, FilesystemError>(
     node: &mut Node,
     vars: &Value,
@@ -98,8 +103,7 @@ where
         } => {
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
                 let (_, exp) = &attrs_list[exp_index];
-                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
-                let v = eval(&exp, vars).map_err(RenderError::Eval)?;
+                let v = parse_eval(exp, vars)?;
                 let cond = truthy(&v);
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
@@ -118,8 +122,7 @@ where
                         return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
-                        let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
-                        let v = eval(&exp, vars).map_err(RenderError::Eval)?;
+                        let v = parse_eval(exp, vars)?;
                         let cond = truthy(&v);
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
@@ -186,9 +189,8 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
-                let exp = eval(&exp, vars).map_err(RenderError::Eval)?;
-                match exp {
+                let v = parse_eval(exp, vars)?;
+                match v {
                     Value::String(html) => {
                         let node = parse_html(html);
                         if name == "template" {
@@ -238,8 +240,7 @@ where
 
                 for (attr, val) in attrs_list.to_owned() {
                     if let Some(attr) = attr.strip_prefix("^") {
-                        let exp = expr(&mut val.as_ref()).map_err(|_| RenderError::Parser)?;
-                        let v = eval(&exp, vars).map_err(RenderError::Eval)?;
+                        let v = parse_eval(&val, vars)?;
                         new_context.insert(attr.to_string(), v);
                     }
                 }
@@ -274,8 +275,7 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
-                let v = eval(&exp, vars).map_err(RenderError::Eval)?;
+                let v = parse_eval(&exp, vars)?;
                 match v {
                     Value::String(tag) => {
                         let html_tag_re = Regex::new(r"^(?i)[A-Z][\w.-]*$").unwrap();
@@ -417,23 +417,17 @@ fn modify_attrs<FileSystemError>(
 
     attrs.retain_mut(|(name_original, val)| {
         if let Some(name) = name_original.strip_prefix('^') {
-            match expr(&mut val.as_ref()) {
-                Ok(exp) => match eval(&exp, vars) {
-                    Ok(v) => match attrify(&v) {
-                        None => false,
-                        Some(s) => {
-                            *name_original = name.to_owned();
-                            *val = s;
-                            true
-                        }
-                    },
-                    Err(e) => {
-                        ret = Err(RenderError::Eval(e));
-                        false
+            match parse_eval(&val, vars) {
+                Ok(v) => match attrify(&v) {
+                    None => false,
+                    Some(s) => {
+                        *name_original = name.to_owned();
+                        *val = s;
+                        true
                     }
                 },
-                Err(_e) => {
-                    ret = Err(RenderError::Parser);
+                Err(e) => {
+                    ret = Err(e);
                     false
                 }
             }
