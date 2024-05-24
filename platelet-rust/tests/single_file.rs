@@ -1,4 +1,7 @@
-use platelet::{render_string_to_string, renderer::RenderError};
+use platelet::{
+    render_string_to_string,
+    renderer::{RenderError, RenderErrorKind},
+};
 use serde_json::{json, Map};
 
 #[test]
@@ -359,7 +362,10 @@ fn bad_pl_is_name() {
     let result = render_string_to_string(&vars, "<div pl-is='\"\"'></div>".into());
     assert_eq!(
         result.unwrap_err(),
-        RenderError::BadPlIsName("".to_string())
+        RenderError {
+            filename: "".to_owned(),
+            kind: RenderErrorKind::BadPlIsName("".to_string())
+        }
     );
 }
 

@@ -129,7 +129,8 @@ mod render_test {
             (r#"FOR LOOP PARSER ERROR:
 x, in [1,2,3]
 ^
-invalid for loop"#
+invalid for loop
+at "#
                 .to_owned())
         );
     }
@@ -142,7 +143,9 @@ invalid for loop"#
         );
         assert_eq!(
             result.unwrap_err().to_string(),
-            (r#"FOR LOOP EVALUATION ERROR: Expected array, found number"#.to_owned())
+            (r#"FOR LOOP EVALUATION ERROR: Expected array, found number
+at "#
+                .to_owned())
         );
     }
 }

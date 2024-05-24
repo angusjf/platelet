@@ -26,7 +26,7 @@ enum PostRenderOperation {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum RenderError<FilesystemError> {
+pub enum RenderErrorKind<FilesystemError> {
     IllegalDirective(String),
     TextRender(text_node::RenderError),
     Parser,
@@ -38,18 +38,18 @@ pub enum RenderError<FilesystemError> {
     FilesystemError(FilesystemError),
 }
 
-impl<FilesystemError> fmt::Display for RenderError<FilesystemError>
+impl<FilesystemError> fmt::Display for RenderErrorKind<FilesystemError>
 where
     FilesystemError: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RenderError::IllegalDirective(e) => write!(f, "ILLEGAL DIRECTIVE: {}", e),
-            RenderError::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
-            RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
-            RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
-            RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR:\n{}", e),
-            RenderError::ForLoopEval(e) => {
+            RenderErrorKind::IllegalDirective(e) => write!(f, "ILLEGAL DIRECTIVE: {}", e),
+            RenderErrorKind::TextRender(e) => write!(f, "TEXT RENDER ERROR: {:?}", e),
+            RenderErrorKind::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
+            RenderErrorKind::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
+            RenderErrorKind::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR:\n{}", e),
+            RenderErrorKind::ForLoopEval(e) => {
                 write!(f, "FOR LOOP EVALUATION ERROR: ")?;
                 match e {
                     for_loop_runner::Error::TypeMismatch { expected, found } => {
@@ -68,16 +68,32 @@ where
                     for_loop_runner::Error::Eval(e) => write!(f, "{:?}", e),
                 }
             }
-            RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
-            RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
-            RenderError::FilesystemError(e) => write!(f, "FILE SYSTEM ERROR: {:?}", e),
+            RenderErrorKind::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
+            RenderErrorKind::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
+            RenderErrorKind::FilesystemError(e) => write!(f, "FILE SYSTEM ERROR: {:?}", e),
         }
     }
 }
 
-fn parse_eval<T>(exp: &String, vars: &Value) -> Result<Value, RenderError<T>> {
-    let exp = expr(&mut exp.as_ref()).map_err(|_| RenderError::Parser)?;
-    eval(&exp, vars).map_err(RenderError::Eval)
+fn parse_eval<T>(exp: &String, vars: &Value) -> Result<Value, RenderErrorKind<T>> {
+    let exp = expr(&mut exp.as_ref()).map_err(|_| RenderErrorKind::Parser)?;
+    eval(&exp, vars).map_err(RenderErrorKind::Eval)
+}
+
+#[derive(PartialEq, Debug)]
+pub struct RenderError<FilesystemError> {
+    pub kind: RenderErrorKind<FilesystemError>,
+    pub filename: String,
+}
+
+impl<FilesystemError> fmt::Display for RenderError<FilesystemError>
+where
+    FilesystemError: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{}", self.kind)?;
+        write!(f, "at {}", self.filename)
+    }
 }
 
 fn render_elem<FS, FilesystemError>(
@@ -109,7 +125,10 @@ where
         }
         Node::Comment { .. } => return Ok(PostRenderOperation::Nothing),
         Node::Text { content: t, .. } => {
-            let content = render_text_node(t.as_ref(), &vars).map_err(RenderError::TextRender)?;
+            let content = render_text_node(t.as_ref(), &vars).map_err(|e| RenderError {
+                kind: RenderErrorKind::TextRender(e),
+                filename: filename.to_owned(),
+            })?;
             let content = content.to_string();
             *t = content;
             Ok(PostRenderOperation::Nothing)
@@ -122,7 +141,10 @@ where
         } => {
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-if") {
                 let (_, exp) = &attrs_list[exp_index];
-                let v = parse_eval(exp, vars)?;
+                let v = parse_eval(exp, vars).map_err(|e| RenderError {
+                    kind: e,
+                    filename: filename.to_owned(),
+                })?;
                 let cond = truthy(&v);
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
@@ -142,7 +164,10 @@ where
                         return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
-                        let v = parse_eval(exp, vars)?;
+                        let v = parse_eval(exp, vars).map_err(|e| RenderError {
+                            kind: e,
+                            filename: filename.clone(),
+                        })?;
                         let cond = truthy(&v);
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
@@ -154,9 +179,12 @@ where
                         }
                     }
                     None => {
-                        return Err(RenderError::IllegalDirective(
-                            "encountered a pl-else-if that didn't follow an if".into(),
-                        ))
+                        return Err(RenderError {
+                            kind: RenderErrorKind::IllegalDirective(
+                                "encountered a pl-else-if that didn't follow an if".into(),
+                            ),
+                            filename: filename.to_owned(),
+                        })
                     }
                 }
             }
@@ -173,19 +201,31 @@ where
                             attrs_list.remove(index);
                         }
                     }
-                    None => return Err(RenderError::IllegalDirective(
+                    None => return Err(RenderError {
+                        kind: RenderErrorKind::IllegalDirective(
                         "encountered a pl-else that didn't immediately for a pl-if or pl-else-if"
                             .into(),
-                    )),
+                    ),
+                    filename: filename.to_owned(),
+                }),
                 }
             }
 
             if let Some(fl_index) = attrs_list.iter().position(|(name, _)| name == "pl-for") {
                 let (_, fl) = &attrs_list[fl_index];
 
-                let fl = for_loop(&mut fl.as_ref()).map_err(RenderError::ForLoopParser)?;
+                let fl = for_loop(&mut fl.as_ref())
+                    .map_err(RenderErrorKind::ForLoopParser)
+                    .map_err(|e| RenderError {
+                        kind: e,
+                        filename: filename.clone(),
+                    })?;
                 let contexts = for_loop_runner::for_loop_runner(&fl, vars)
-                    .map_err(RenderError::ForLoopEval)?;
+                    .map_err(RenderErrorKind::ForLoopEval)
+                    .map_err(|e| RenderError {
+                        kind: e,
+                        filename: filename.clone(),
+                    })?;
                 attrs_list.remove(fl_index);
 
                 let mut repeats = vec![];
@@ -216,7 +256,10 @@ where
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let v = parse_eval(exp, vars)?;
+                let v = parse_eval(exp, vars).map_err(|e| RenderError {
+                    kind: e,
+                    filename: filename.to_owned(),
+                })?;
                 match v {
                     Value::String(html) => {
                         let node = parse_html(html);
@@ -230,9 +273,12 @@ where
                         }
                     }
                     _v => {
-                        return Err(RenderError::IllegalDirective(
-                            "pl-html expects a string".into(),
-                        ))
+                        return Err(RenderError {
+                            kind: RenderErrorKind::IllegalDirective(
+                                "pl-html expects a string".into(),
+                            ),
+                            filename: filename.to_owned(),
+                        })
                     }
                 }
             }
@@ -242,7 +288,11 @@ where
 
                 let path = filesystem
                     .move_to(filename, src)
-                    .map_err(RenderError::FilesystemError)?;
+                    .map_err(RenderErrorKind::FilesystemError)
+                    .map_err(|e| RenderError {
+                        kind: e,
+                        filename: filename.to_owned(),
+                    })?;
 
                 let mut slots: HashMap<_, Vec<Node>> = HashMap::new();
 
@@ -267,7 +317,10 @@ where
 
                 for (attr, val) in attrs_list.to_owned() {
                     if let Some(attr) = attr.strip_prefix("^") {
-                        let v = parse_eval(&val, vars)?;
+                        let v = parse_eval(&val, vars).map_err(|e| RenderError {
+                            kind: e,
+                            filename: filename.to_owned(),
+                        })?;
                         new_context.insert(attr.to_string(), v);
                     }
                 }
@@ -295,14 +348,22 @@ where
 
                 match slots.get(src) {
                     Some(node) => return Ok(PostRenderOperation::ReplaceMeWith(node.clone())),
-                    None => return Err(RenderError::UndefinedSlot(src.clone())),
+                    None => {
+                        return Err(RenderError {
+                            kind: RenderErrorKind::UndefinedSlot(src.clone()),
+                            filename: filename.to_owned(),
+                        })
+                    }
                 }
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
                 let (_, exp) = &attrs_list[exp_index];
 
-                let v = parse_eval(&exp, vars)?;
+                let v = parse_eval(&exp, vars).map_err(|e| RenderError {
+                    kind: e,
+                    filename: filename.clone(),
+                })?;
                 match v {
                     Value::String(tag) => {
                         let html_tag_re = Regex::new(r"^(?i)[A-Z][\w.-]*$").unwrap();
@@ -310,18 +371,27 @@ where
                             attrs_list.remove(exp_index);
                             *name = tag;
                         } else {
-                            return Err(RenderError::BadPlIsName(tag));
+                            return Err(RenderError {
+                                kind: RenderErrorKind::BadPlIsName(tag),
+                                filename: filename.to_owned(),
+                            });
                         };
                     }
                     _v => {
-                        return Err(RenderError::IllegalDirective(
-                            "pl-is expects a string".into(),
-                        ))
+                        return Err(RenderError {
+                            kind: RenderErrorKind::IllegalDirective(
+                                "pl-is expects a string".into(),
+                            ),
+                            filename: filename.to_owned(),
+                        })
                     }
                 }
             }
 
-            modify_attrs(attrs_list, vars)?;
+            modify_attrs(attrs_list, vars).map_err(|e| RenderError {
+                kind: e,
+                filename: filename.clone(),
+            })?;
 
             if name != "script" {
                 render_children(
@@ -333,7 +403,7 @@ where
                     filesystem,
                 )?;
             } else {
-                // TODO
+                // TODO - should I allow injecting script tags?
             }
 
             if name == "style" || name == "script" {
@@ -439,8 +509,8 @@ fn attrify(val: &Value) -> Option<String> {
 fn modify_attrs<FileSystemError>(
     attrs: &mut Vec<(String, String)>,
     vars: &Value,
-) -> Result<(), RenderError<FileSystemError>> {
-    let mut ret: Result<(), RenderError<FileSystemError>> = Ok(());
+) -> Result<(), RenderErrorKind<FileSystemError>> {
+    let mut ret: Result<(), RenderErrorKind<FileSystemError>> = Ok(());
 
     attrs.retain_mut(|(name_original, val)| {
         if let Some(name) = name_original.strip_prefix('^') {
@@ -477,9 +547,10 @@ where
     FS: Filesystem<FileSystemError>,
     FileSystemError: fmt::Debug,
 {
-    let html = filesystem
-        .read(filename)
-        .map_err(RenderError::FilesystemError)?;
+    let html = filesystem.read(filename).map_err(|e| RenderError {
+        kind: RenderErrorKind::FilesystemError(e),
+        filename: filename.to_owned(),
+    })?;
 
     let mut node = parse_html(html);
 
