@@ -6,13 +6,14 @@ use serde_json::Value;
 use crate::{
     expression_eval::{eval, EvalError},
     expression_parser::expr,
+    types::Type,
 };
 
 #[derive(Debug, PartialEq)]
 pub enum RenderError {
     EvalError(EvalError),
-    ParserError,
-    RenderError,
+    ParserError(String),
+    RenderError(Type),
 }
 
 pub(crate) fn render_text_node<'a>(
@@ -29,8 +30,8 @@ pub(crate) fn render_text_node<'a>(
             Ok(exp) => match eval(&exp, vars) {
                 Ok(s) => match stringify(&s) {
                     Ok(s) => s,
-                    Err(()) => {
-                        error = Err(RenderError::RenderError);
+                    Err(t) => {
+                        error = Err(RenderError::RenderError(t));
                         exp_s
                     }
                 },
@@ -39,8 +40,8 @@ pub(crate) fn render_text_node<'a>(
                     exp_s
                 }
             },
-            Err(_e) => {
-                error = Err(RenderError::ParserError);
+            Err(e) => {
+                error = Err(RenderError::ParserError(e.to_string()));
                 exp_s
             }
         }
@@ -49,13 +50,13 @@ pub(crate) fn render_text_node<'a>(
     error.map(|()| out)
 }
 
-fn stringify(v: &Value) -> Result<String, ()> {
+fn stringify(v: &Value) -> Result<String, Type> {
     match v {
         Value::Null => Ok("".to_owned()),
         Value::Bool(b) => Ok(b.to_string()),
         Value::Number(n) => Ok(n.to_string()),
         Value::String(s) => Ok(s.to_owned()),
-        Value::Array(_) => Err(()),
-        Value::Object(_) => Err(()),
+        Value::Array(_) => Err(Type::Array),
+        Value::Object(_) => Err(Type::Object),
     }
 }
