@@ -129,8 +129,9 @@ where
                     return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                 } else if name == "template" {
                     return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
+                } else {
+                    attrs_list.remove(exp_index);
                 }
-                attrs_list.remove(exp_index);
             }
 
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-else-if") {
@@ -146,8 +147,11 @@ where
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
                             return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
+                        } else if name == "template" {
+                            return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
+                        } else {
+                            attrs_list.remove(exp_index);
                         }
-                        attrs_list.remove(exp_index);
                     }
                     None => {
                         return Err(RenderError::IllegalDirective(
@@ -163,7 +167,11 @@ where
                         return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
-                        attrs_list.remove(index);
+                        if name == "template" {
+                            return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
+                        } else {
+                            attrs_list.remove(index);
+                        }
                     }
                     None => return Err(RenderError::IllegalDirective(
                         "encountered a pl-else that didn't immediately for a pl-if or pl-else-if"

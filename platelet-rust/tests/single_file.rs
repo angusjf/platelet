@@ -424,3 +424,25 @@ fn no_html_text_injection() {
         "<div>username&lt;/div&gt;&lt;script&gt;alert('you have been hacked');&lt;/script&gt;'</div>"
     );
 }
+
+#[test]
+fn pl_else_if_template() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<div pl-if='0'>hello</div><template pl-else-if='1'>this</template>"#.into(),
+    );
+    assert_eq!(result.unwrap(), "this");
+}
+
+#[test]
+fn pl_else_template() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<div pl-if='0'>hello</div><template pl-else>this</template>"#.into(),
+    );
+    assert_eq!(result.unwrap(), "this");
+}
