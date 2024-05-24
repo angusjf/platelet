@@ -6,8 +6,8 @@ use crate::{
     types::{type_of, Type},
 };
 
-#[derive(Debug)]
-pub(crate) enum Error {
+#[derive(Debug, PartialEq)]
+pub enum Error {
     TypeMismatch { expected: Vec<Type>, found: Type },
     Eval(EvalError),
 }
@@ -15,25 +15,7 @@ pub(crate) enum Error {
 pub(crate) fn for_loop_runner(
     for_loop: &ForLoop,
     base_context: &Value,
-) -> Result<Vec<Value>, String> {
-    fl(for_loop, base_context).map_err(|e| match e {
-        Error::TypeMismatch { expected, found } => {
-            format!(
-                "Expected {}, found {}",
-                expected
-                    .iter()
-                    .map(Type::to_string)
-                    .collect::<Vec<_>>()
-                    .join(" or "),
-                found.to_string()
-            )
-        }
-
-        Error::Eval(e) => format!("{:?}", e),
-    })
-}
-
-fn fl(for_loop: &ForLoop, base_context: &Value) -> Result<Vec<Value>, Error> {
+) -> Result<Vec<Value>, Error> {
     match for_loop {
         ForLoop::Simple(id, exp) => {
             let val = eval(exp, base_context).map_err(Error::Eval)?;

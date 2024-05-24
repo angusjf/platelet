@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Type {
+pub enum Type {
     String,
     Number,
     Object,

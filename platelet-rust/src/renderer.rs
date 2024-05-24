@@ -12,6 +12,7 @@ use crate::for_loop_parser::for_loop;
 use crate::html::Node;
 use crate::html_parser::parse_html;
 use crate::text_node::render_text_node;
+use crate::types::Type;
 use crate::{for_loop_runner, text_node};
 
 pub trait Filesystem<E> {
@@ -31,7 +32,7 @@ pub enum RenderError<FilesystemError> {
     Parser,
     Eval(EvalError),
     ForLoopParser(String),
-    ForLoopEval(String),
+    ForLoopEval(for_loop_runner::Error),
     UndefinedSlot(String),
     BadPlIsName(String),
     FilesystemError(FilesystemError),
@@ -48,7 +49,25 @@ where
             RenderError::Parser => write!(f, "PARSER ERROR: {:?}", '?'),
             RenderError::Eval(e) => write!(f, "EVAL ERROR: {:?}", e),
             RenderError::ForLoopParser(e) => write!(f, "FOR LOOP PARSER ERROR:\n{}", e),
-            RenderError::ForLoopEval(e) => write!(f, "FOR LOOP EVALUATION ERROR: {}", e),
+            RenderError::ForLoopEval(e) => {
+                write!(f, "FOR LOOP EVALUATION ERROR: ")?;
+                match e {
+                    for_loop_runner::Error::TypeMismatch { expected, found } => {
+                        write!(
+                            f,
+                            "Expected {}, found {}",
+                            expected
+                                .iter()
+                                .map(Type::to_string)
+                                .collect::<Vec<_>>()
+                                .join(" or "),
+                            found.to_string()
+                        )
+                    }
+
+                    for_loop_runner::Error::Eval(e) => write!(f, "{:?}", e),
+                }
+            }
             RenderError::UndefinedSlot(e) => write!(f, "UNDEFINED SLOT: {:?}", e),
             RenderError::BadPlIsName(e) => write!(f, "UNDEFINED `pl-is` NAME: {:?}", e),
             RenderError::FilesystemError(e) => write!(f, "FILE SYSTEM ERROR: {:?}", e),
