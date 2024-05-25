@@ -463,3 +463,12 @@ fn pl_is_and_pl_html() {
 
     assert_eq!(result.unwrap(), "<dialog>hello!</dialog>");
 }
+
+#[test]
+fn pl_template_and_pl_if() {
+    let vars = Map::new().into();
+
+    let result = render(&vars, r#"<template pl-if=true>{{ 99 }}</template>"#.into());
+
+    assert_eq!(result.unwrap(), "99");
+}
