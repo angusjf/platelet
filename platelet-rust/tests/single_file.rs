@@ -271,7 +271,7 @@ fn caret_attr_object() {
     let result = render_string_to_string(&vars, r#"<button ^class='classes'></button>"#.into());
     assert_eq!(
         result.unwrap(),
-        "<button class='should-also-have should-have'></button>"
+        "<button class='should-have should-also-have'></button>"
     );
 }
 
