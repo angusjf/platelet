@@ -11,7 +11,11 @@ struct FileMap {
 
 impl Filesystem<String> for FileMap {
     fn move_to(&self, _current: &String, path: &String) -> Result<String, String> {
-        Ok(path.to_owned())
+        if self.files.contains_key(path) {
+            Ok(path.to_owned())
+        } else {
+            Err(path.to_owned() + " does not exist")
+        }
     }
 
     fn read(&self, file: &String) -> Result<String, String> {
