@@ -64,12 +64,14 @@ pub enum PathFilesystemError {
     ReadError(String, io::Error),
     NoParent(String),
     FailedToStringifyPath(PathBuf),
+    PathDoesNotExist(PathBuf),
 }
 
 impl Filesystem<PathFilesystemError> for PathFilesystem {
     fn read(&self, filename: &String) -> Result<String, PathFilesystemError> {
         let path: PathBuf = filename.try_into().unwrap();
-        let mut file = File::open(path.clone()).expect("bad file");
+        let mut file = File::open(path.clone())
+            .map_err(|e| PathFilesystemError::ReadError(filename.to_owned(), e))?;
         let mut buf = String::new();
         file.read_to_string(&mut buf)
             .map_err(|e| PathFilesystemError::ReadError(filename.to_owned(), e))?;
@@ -82,12 +84,16 @@ impl Filesystem<PathFilesystemError> for PathFilesystem {
             .parent()
             .ok_or(PathFilesystemError::NoParent(current.to_owned()))?
             .join(path);
-        Ok(new_path
-            .to_str()
-            .ok_or(PathFilesystemError::FailedToStringifyPath(
-                new_path.to_owned(),
-            ))?
-            .to_owned())
+        if new_path.exists() {
+            Ok(new_path
+                .to_str()
+                .ok_or(PathFilesystemError::FailedToStringifyPath(
+                    new_path.to_owned(),
+                ))?
+                .to_owned())
+        } else {
+            Err(PathFilesystemError::PathDoesNotExist(new_path))
+        }
     }
 }
 
@@ -130,7 +136,7 @@ mod render_test {
 x, in [1,2,3]
 ^
 invalid for loop
-at "#
+in input"#
                 .to_owned())
         );
     }
@@ -144,7 +150,7 @@ at "#
         assert_eq!(
             result.unwrap_err().to_string(),
             (r#"FOR LOOP EVALUATION ERROR: Expected array, found number
-at "#
+in input"#
                 .to_owned())
         );
     }

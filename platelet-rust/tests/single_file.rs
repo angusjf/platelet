@@ -362,7 +362,7 @@ fn bad_pl_is_name() {
     assert_eq!(
         result.unwrap_err(),
         RenderError {
-            filename: "".to_owned(),
+            filename: "input".to_owned(),
             kind: RenderErrorKind::BadPlIsName("".to_string())
         }
     );
