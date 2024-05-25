@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use platelet::{render_to_string, renderer::Filesystem};
+use platelet::{render_with_custom_filesystem, renderer::Filesystem};
 use serde_json::{json, Map};
 
 struct MockMultiFile {
@@ -20,7 +20,7 @@ impl Filesystem<()> for MockMultiFile {
 fn pl_src() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {
@@ -40,7 +40,7 @@ fn pl_src() {
 fn pl_src_with_slot() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
             &vars,
             &"index.html".into(),
             &MockMultiFile {
@@ -63,7 +63,7 @@ fn pl_src_with_slot() {
 fn pl_src_with_named_slots() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {
@@ -95,7 +95,7 @@ fn pl_src_with_named_slots() {
 fn pl_src_with_cotext() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {
@@ -115,7 +115,7 @@ fn pl_src_with_cotext() {
 fn pl_for_and_pl_src() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {
@@ -153,7 +153,7 @@ fn example() {
       ]
     });
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {
@@ -229,7 +229,7 @@ fn example() {
 fn pl_for_lots_of_children() {
     let vars = Map::new().into();
 
-    let result = render_to_string(
+    let result = render_with_custom_filesystem(
         &vars,
         &"index.html".into(),
         &MockMultiFile {

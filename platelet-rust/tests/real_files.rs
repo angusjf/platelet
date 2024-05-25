@@ -1,13 +1,13 @@
 use std::path::Path;
 
-use platelet::render_with_filesystem;
+use platelet::render_file;
 use serde_json::json;
 
 #[test]
 fn pl_src() {
     let vars = json!({"examples": ["this", "that"]});
 
-    let result = render_with_filesystem(&vars, Path::new("./tests/example_index.html"));
+    let result = render_file(&vars, Path::new("./tests/example_index.html"));
 
     assert_eq!(
         result.unwrap(),

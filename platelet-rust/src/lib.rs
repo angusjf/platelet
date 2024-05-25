@@ -7,7 +7,7 @@ use std::{
     rc::Rc,
 };
 
-use renderer::{render, Filesystem, RenderError};
+use renderer::{Filesystem, RenderError};
 use serde_json::Value;
 
 mod expression_eval;
@@ -21,7 +21,7 @@ pub mod renderer;
 mod text_node;
 mod types;
 
-pub fn render_to_string<F, FilesystemError>(
+pub fn render_with_custom_filesystem<F, FilesystemError>(
     vars: &Value,
     filename: &String,
     filesystem: &F,
@@ -30,7 +30,7 @@ where
     F: Filesystem<FilesystemError>,
     FilesystemError: fmt::Debug,
 {
-    render(
+    renderer::render(
         vars,
         Rc::new(HashMap::new()),
         &mut HashSet::new(),
@@ -53,8 +53,8 @@ impl Filesystem<()> for SingleFile {
     }
 }
 
-pub fn render_string_to_string(vars: &Value, html: String) -> Result<String, RenderError<()>> {
-    render_to_string(&vars, &"".to_owned(), &SingleFile { data: html })
+pub fn render(vars: &Value, html: String) -> Result<String, RenderError<()>> {
+    render_with_custom_filesystem(&vars, &"input".to_owned(), &SingleFile { data: html })
 }
 
 struct PathFilesystem {}
@@ -91,11 +91,11 @@ impl Filesystem<PathFilesystemError> for PathFilesystem {
     }
 }
 
-pub fn render_with_filesystem(
+pub fn render_file(
     vars: &Value,
     filename: &Path,
 ) -> Result<String, RenderError<PathFilesystemError>> {
-    render_to_string(
+    render_with_custom_filesystem(
         &vars,
         &filename.to_str().unwrap().to_owned(),
         &PathFilesystem {},
@@ -111,7 +111,7 @@ mod render_test {
 
     #[test]
     fn happy_path() {
-        let result = render_string_to_string(
+        let result = render(
             &json!({ "hello": "hi" }),
             "<h1>{{ hello }} world".to_owned(),
         );
@@ -120,7 +120,7 @@ mod render_test {
 
     #[test]
     fn for_loop_parser_error() {
-        let result = render_string_to_string(
+        let result = render(
             &json!({ "hello": "hi" }),
             "<h1 pl-for='x, in [1,2,3]'>{{ hello }} world {{ x }}".to_owned(),
         );
@@ -137,7 +137,7 @@ at "#
 
     #[test]
     fn for_loop_exec_error() {
-        let result = render_string_to_string(
+        let result = render(
             &json!({ "hello": "hi" }),
             "<h1 pl-for='x in 1'>{{ hello }} world {{ x }}".to_owned(),
         );

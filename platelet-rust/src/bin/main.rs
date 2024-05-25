@@ -1,4 +1,4 @@
-use platelet::render_with_filesystem;
+use platelet::render_file;
 use serde_json::Value;
 use std::env;
 use std::io::{self, Read};
@@ -13,8 +13,5 @@ fn main() {
     io::stdin().read_to_string(&mut stdin).unwrap();
     let stdin: Value = serde_json::from_str(&stdin).unwrap();
 
-    println!(
-        "{}",
-        render_with_filesystem(&stdin, &Path::new(&filename)).unwrap()
-    );
+    println!("{}", render_file(&stdin, &Path::new(&filename)).unwrap());
 }
