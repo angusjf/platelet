@@ -452,3 +452,15 @@ fn pl_else_template() {
     );
     assert_eq!(result.unwrap(), "this");
 }
+
+#[test]
+fn pl_is_and_pl_html() {
+    let vars = Map::new().into();
+
+    let result = render_string_to_string(
+        &vars,
+        r#"<div pl-is='"dialog"' pl-html='"hello!"'></div>"#.into(),
+    );
+
+    assert_eq!(result.unwrap(), "<dialog>hello!</dialog>");
+}

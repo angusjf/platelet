@@ -253,6 +253,37 @@ where
                 return Ok(PostRenderOperation::ReplaceMeWith(repeats));
             }
 
+            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
+                let (_, exp) = &attrs_list[exp_index];
+
+                let v = parse_eval(&exp, vars).map_err(|e| RenderError {
+                    kind: e,
+                    filename: filename.clone(),
+                })?;
+                match v {
+                    Value::String(tag) => {
+                        let html_tag_re = Regex::new(r"^(?i)[A-Z][\w.-]*$").unwrap();
+                        if html_tag_re.is_match(&tag) {
+                            attrs_list.remove(exp_index);
+                            *name = tag;
+                        } else {
+                            return Err(RenderError {
+                                kind: RenderErrorKind::BadPlIsName(tag),
+                                filename: filename.to_owned(),
+                            });
+                        };
+                    }
+                    _v => {
+                        return Err(RenderError {
+                            kind: RenderErrorKind::IllegalDirective(
+                                "pl-is expects a string".into(),
+                            ),
+                            filename: filename.to_owned(),
+                        })
+                    }
+                }
+            }
+
             if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-html") {
                 let (_, exp) = &attrs_list[exp_index];
 
@@ -351,37 +382,6 @@ where
                     None => {
                         return Err(RenderError {
                             kind: RenderErrorKind::UndefinedSlot(src.clone()),
-                            filename: filename.to_owned(),
-                        })
-                    }
-                }
-            }
-
-            if let Some(exp_index) = attrs_list.iter().position(|(name, _)| name == "pl-is") {
-                let (_, exp) = &attrs_list[exp_index];
-
-                let v = parse_eval(&exp, vars).map_err(|e| RenderError {
-                    kind: e,
-                    filename: filename.clone(),
-                })?;
-                match v {
-                    Value::String(tag) => {
-                        let html_tag_re = Regex::new(r"^(?i)[A-Z][\w.-]*$").unwrap();
-                        if html_tag_re.is_match(&tag) {
-                            attrs_list.remove(exp_index);
-                            *name = tag;
-                        } else {
-                            return Err(RenderError {
-                                kind: RenderErrorKind::BadPlIsName(tag),
-                                filename: filename.to_owned(),
-                            });
-                        };
-                    }
-                    _v => {
-                        return Err(RenderError {
-                            kind: RenderErrorKind::IllegalDirective(
-                                "pl-is expects a string".into(),
-                            ),
                             filename: filename.to_owned(),
                         })
                     }
