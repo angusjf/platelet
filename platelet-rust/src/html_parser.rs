@@ -92,7 +92,7 @@ fn nodeify_node(dom: &Rc<Node>) -> N {
             ref template_contents,
             ..
         } => {
-            let name = name.local.to_string();
+            let mut name = name.local.to_string();
 
             let attrs = nodify_attrs(attrs);
 
@@ -104,6 +104,10 @@ fn nodeify_node(dom: &Rc<Node>) -> N {
                 for child in dom.children.borrow().iter() {
                     children.push(nodeify_node(&child));
                 }
+            }
+
+            if name == "template" && attrs.iter().any(|(name, _val)| name.starts_with("pl-")) {
+                name = "pl-template".to_owned();
             }
 
             N::Element {

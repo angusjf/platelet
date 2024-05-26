@@ -67,6 +67,12 @@ fn push_node_as_string(s: &mut String, n: &Node) {
             attrs,
             children,
         } => {
+            if name == "pl-template" {
+                for child in children {
+                    push_node_as_string(s, child);
+                }
+                return;
+            }
             s.push('<');
             s.push_str(name);
 

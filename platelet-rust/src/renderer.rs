@@ -149,8 +149,6 @@ where
                 *next_neighbour_conditional = Some(cond);
                 if !cond {
                     return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
-                } else if name == "template" {
-                    return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
                 } else {
                     attrs_list.remove(exp_index);
                 }
@@ -172,8 +170,6 @@ where
                         *next_neighbour_conditional = Some(cond);
                         if !cond {
                             return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
-                        } else if name == "template" {
-                            return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
                         } else {
                             attrs_list.remove(exp_index);
                         }
@@ -195,11 +191,7 @@ where
                         return Ok(PostRenderOperation::ReplaceMeWith(vec![]));
                     }
                     Some(false) => {
-                        if name == "template" {
-                            return Ok(PostRenderOperation::ReplaceMeWith(children.to_owned()));
-                        } else {
-                            attrs_list.remove(index);
-                        }
+                        attrs_list.remove(index);
                     }
                     None => return Err(RenderError {
                         kind: RenderErrorKind::IllegalDirective(
@@ -230,16 +222,8 @@ where
 
                 let mut repeats = vec![];
 
-                if name == "template" {
-                    for _ in &contexts {
-                        repeats.push(Node::Document {
-                            children: children.clone(),
-                        })
-                    }
-                } else {
-                    for _ in &contexts {
-                        repeats.push(node.clone());
-                    }
+                for _ in &contexts {
+                    repeats.push(node.clone());
                 }
 
                 render_children(
@@ -294,14 +278,10 @@ where
                 match v {
                     Value::String(html) => {
                         let node = parse_html(html);
-                        if name == "template" {
-                            return Ok(PostRenderOperation::ReplaceMeWith(vec![node]));
-                        } else {
-                            attrs_list.remove(exp_index);
-                            children.clear();
-                            children.push(node);
-                            return Ok(PostRenderOperation::Nothing);
-                        }
+                        attrs_list.remove(exp_index);
+                        children.clear();
+                        children.push(node);
+                        return Ok(PostRenderOperation::Nothing);
                     }
                     _v => {
                         return Err(RenderError {
@@ -334,7 +314,7 @@ where
                         name,
                         attrs,
                         children,
-                    } if name == "template" => {
+                    } if name == "pl-template" => {
                         let (_, slot_name) = attrs.iter().find(|(k, _)| k == "pl-slot").unwrap();
                         slots.insert(slot_name.clone(), children.to_owned());
                         false
