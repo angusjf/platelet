@@ -304,6 +304,11 @@ article {
             }
 
             function load(scratchpad) {
+                htmlEditors.length = 0;
+                for (let old of document.querySelectorAll("[role=tab], [role=tabpanel]")) {
+                    old.remove();
+                }
+
                 for (let i = 0; i < scratchpad.files.length; i++) {
                     let file = scratchpad.files[i];
                     let newTabAndPanel = createTab(file.title, file.content);
