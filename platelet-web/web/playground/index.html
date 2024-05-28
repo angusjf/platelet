@@ -145,21 +145,28 @@
         <main class="editors">
             <div id="html-editors" class="tabs">
                 <div role="tablist">
-                    <button role="tab" onclick="tabClick(this)" aria-selected="true">index.html</button>
-                    <button role="tab" onclick="tabClick(this)" aria-selected="false">blogpost.html</button>
                     <template id="new-tab">
                         <button role="tab" onclick="tabClick(this)" aria-selected="false">unnamed.html</button>
                     </template>
-                    <button onclick="newTab()">+</button>
+                    <button id="new-tab-button" onclick="newTab()">+</button>
                 </div>
-                <div role="tabpanel" class="editor"></div>
-                <div role="tabpanel" class="editor" hidden></div>
                 <template id="new-tabpanel">
                     <div role="tabpanel" class="editor" hidden></div>
                 </template>
             </div>
             <div id="json-editor" class="editor"></div>
-            <div id="html-output" class="editor"></div>
+            <div style="display: flex; flex-direction: column; gap: 2px">
+                <div style="display: flex; flex-direction: row-reverse">
+                    <div>
+                        <label for="example-select">Examples:</label>
+                        <select id="example-select" onchange="loadExample(this)">
+                            <option value="">-----------</option>
+                            <option value="blog">Blog</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="html-output" class="editor" style="flex-grow: 1"></div>
+            </div>
             <div class="editor">
                 <iframe sandbox id="rendered-output"></iframe>
             </div>
@@ -174,27 +181,12 @@
         <script type="module">
             import CodeFlask from "https://cdn.jsdelivr.net/npm/codeflask@1.4.1/+esm";
 
-            const htmlEditors = [...document.querySelectorAll("#html-editors .editor")].map(
-                (e) =>
-                    new CodeFlask(e, {
-                        language: "html",
-                        defaultTheme: false,
-                    }),
-            );
-
-            const jsonEditor = new CodeFlask("#json-editor", {
-                language: "javascript",
-                defaultTheme: false,
-            });
-            const htmlOutput = new CodeFlask("#html-output", {
-                language: "html",
-                readonly: true,
-                defaultTheme: false,
-            });
-
-            const renderedOutput = document.getElementById("rendered-output");
-
-            htmlEditors[0].updateCode(`<!doctype html>
+            const examples = {
+                blog: {
+                    files: [
+                        {
+                            title: "index.html",
+                            content: `<!doctype html>
 <html>
   <head>
     <title>{{ title }}</title>
@@ -204,9 +196,11 @@
     <slot pl-for="b in blogposts" pl-src="blogpost.html" ^blogpost="b">
     </slot>
   </body>
-</html>`);
-
-            htmlEditors[1].updateCode(`<article>
+</html>`,
+                        },
+                        {
+                            title: "blogpost.html",
+                            content: `<article>
   <img ^src="blogpost.img_url">
   <div>
     <h2>
@@ -217,43 +211,39 @@
   </div>
 </article>
 <style>
-  article {
-    display: flex;
-    gap: 1rem;
-    font-family: sans-serif;
-  }
-</style>`);
-
-            jsonEditor.updateCode(
-                JSON.stringify(
-                    {
-                        title: "Welcome to platelet",
-                        blogposts: [
-                            {
-                                img_url: "https://angusjf.com/images/cy_1x.jpg",
-                                link: "https://angusjf.com/platelet",
-                                summary: "<p><i>in my opinion</i>, it's <b>pretty good</b></p>",
-                                title: "Platelet",
-                                date: "01/11/2025",
-                            },
-                            {
-                                img_url: "https://angusjf.com/images/hanzi_1x.webp",
-                                link: "https://angusjf.com",
-                                summary: "<p>here's my real blog</p>",
-                                title: "SOMETHING ELSE",
-                                date: "01/11/2020",
-                            },
-                        ],
-                    },
-                    undefined,
-                    4,
-                ),
-            );
-            htmlOutput.updateCode(`loading...`);
-
-            htmlEditors.map((e) => e.onUpdate(() => refreshOutput()));
-
-            jsonEditor.onUpdate(() => refreshOutput());
+article {
+  display: flex;
+  gap: 1rem;
+  font-family: sans-serif;
+}
+</style>`,
+                        },
+                    ],
+                    context: JSON.stringify(
+                        {
+                            title: "Welcome to platelet",
+                            blogposts: [
+                                {
+                                    img_url: "https://angusjf.com/images/cy_1x.jpg",
+                                    link: "https://angusjf.com/platelet",
+                                    summary: "<p><i>in my opinion</i>, it's <b>pretty good</b></p>",
+                                    title: "Platelet",
+                                    date: "01/11/2025",
+                                },
+                                {
+                                    img_url: "https://angusjf.com/images/hanzi_1x.webp",
+                                    link: "https://angusjf.com",
+                                    summary: "<p>here's my real blog</p>",
+                                    title: "SOMETHING ELSE",
+                                    date: "01/11/2020",
+                                },
+                            ],
+                        },
+                        undefined,
+                        4,
+                    ),
+                },
+            };
 
             let workerWorking = true;
             let queuedWork = undefined;
@@ -282,6 +272,58 @@
                     renderOutput(message.data);
                 }
             }
+
+            const htmlEditors = [];
+
+            const jsonEditor = new CodeFlask("#json-editor", {
+                language: "javascript",
+                defaultTheme: false,
+            });
+
+            const htmlOutput = new CodeFlask("#html-output", {
+                language: "html",
+                readonly: true,
+                defaultTheme: false,
+            });
+
+            const renderedOutput = document.getElementById("rendered-output");
+
+            function getScratchpad() {
+                const scratchpad = localStorage.getItem("scratchpad");
+                return scratchpad ? JSON.parse(scratchpad) : null;
+            }
+
+            function updateScratchpad() {
+                const tabs = document.querySelectorAll("#html-editors [role=tablist] [role=tab]");
+                const scratchpad = {
+                    files: htmlEditors.map((e, i) => ({ title: tabs[i].innerText, content: e.code })),
+                    context: jsonEditor.code,
+                };
+
+                localStorage.setItem("scratchpad", JSON.stringify(scratchpad));
+            }
+
+            function load(scratchpad) {
+                for (let i = 0; i < scratchpad.files.length; i++) {
+                    let file = scratchpad.files[i];
+                    let newTabAndPanel = createTab(file.title, file.content);
+                    if (i == 0) {
+                        tabClick(newTabAndPanel.tab);
+                        newTabAndPanel.tabpanel.hidden = false;
+                    }
+                }
+
+                jsonEditor.updateCode(scratchpad.context);
+
+                htmlOutput.updateCode("loading...");
+            }
+
+            jsonEditor.onUpdate(() => {
+                refreshOutput();
+                updateScratchpad();
+            });
+
+            load(getScratchpad() || Object.values(examples)[0]);
 
             function renderOutput(data) {
                 if (data.ok) {
@@ -322,41 +364,63 @@
                 refreshOutput();
             });
 
-            globalThis.tabClick = (e) => {
+            function tabClick(e) {
                 if (e.ariaSelected == "true") {
                     dialog.querySelector("input[name='new-tab-name']").value = document.querySelector("[aria-selected=true]").innerText;
                     dialog.showModal();
                 } else {
-                    document.querySelector("[aria-selected=true]").ariaSelected = false;
+                    let oldTab = document.querySelector("[aria-selected=true]");
+                    if (oldTab) {
+                        oldTab.ariaSelected = false;
+                    }
                     e.ariaSelected = true;
                     const tablist = e.closest("[role=tablist]");
-                    let index = [...tablist.children].indexOf(e);
+                    let index = [...tablist.querySelectorAll("[role=tab]")].indexOf(e);
                     let tabpanels = [...tablist.parentNode.querySelectorAll("[role=tabpanel]")];
                     tabpanels.forEach((tabpanel, i) => {
                         tabpanel.hidden = i != index;
                     });
                 }
-            };
+            }
 
-            const lastMatch = (q) => [...document.querySelectorAll(q)].at(-1);
+            globalThis.tabClick = tabClick;
 
-            globalThis.newTab = () => {
+            function newTab(e) {
+                let title = nextTabTitle("new.html");
+                let { tab: t } = createTab(title, "<!-- your code here -->");
+                tabClick(t);
+            }
+
+            globalThis.newTab = newTab;
+
+            function loadExample(select) {
+                load(examples[select.value]);
+            }
+
+            globalThis.loadExample = loadExample;
+
+            function createTab(title, code) {
                 let t = document.getElementById("new-tab").content.cloneNode(true);
-                lastMatch("#html-editors [role=tab]").after(t);
+                lastMatch("#html-editors #new-tab-button").before(t);
                 t = lastMatch("#html-editors [role=tab]");
                 let tp = document.getElementById("new-tabpanel").content.cloneNode(true);
-                lastMatch("#html-editors [role=tabpanel]").after(tp);
+                document.getElementById("html-editors").appendChild(tp);
                 tp = lastMatch("#html-editors [role=tabpanel]");
                 const editor = new CodeFlask(tp, {
                     language: "html",
                     defaultTheme: false,
                 });
-                editor.onUpdate(() => refreshOutput());
-                editor.updateCode("<!-- your code here -->");
-                t.innerText = nextTabTitle("new.html");
-                tabClick(t);
+                editor.onUpdate(() => {
+                    refreshOutput();
+                    updateScratchpad();
+                });
+                editor.updateCode(code);
+                t.innerText = title;
+
                 htmlEditors.push(editor);
-            };
+
+                return { tab: t, tabpanel: tp };
+            }
 
             function nextTabTitle(desired) {
                 let titles = [...document.querySelectorAll("#html-editors [role=tab]")].map((e) => e.innerText);
@@ -366,6 +430,10 @@
                 }
 
                 return desired;
+            }
+
+            function lastMatch(q) {
+                return [...document.querySelectorAll(q)].at(-1);
             }
 
             refreshOutput();
