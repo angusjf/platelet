@@ -560,7 +560,8 @@ article {
             globalThis.newTab = newTab;
 
             function loadExample(select) {
-                load(examples[select.value]);
+                const scratchpad = examples[select.value];
+                load(scratchpad);
             }
 
             globalThis.loadExample = loadExample;
