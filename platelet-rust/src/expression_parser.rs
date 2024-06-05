@@ -64,11 +64,11 @@ pub(crate) fn expression(input: &mut &str) -> PResult<Expression> {
 
 fn conditional_expression(input: &mut &str) -> PResult<Expression> {
     let cond = or_expression.parse_next(input)?;
-    if let Ok((x, y)) = (
+    if let Ok(Some((x, y))) = opt((
         preceded((ws, '?', ws), expression),
         preceded((ws, ':', ws), conditional_expression),
-    )
-        .parse_next(input)
+    ))
+    .parse_next(input)
     {
         Ok(Expression::Conditional(Box::new((cond, x, y))))
     } else {
@@ -871,6 +871,15 @@ mod test {
                     ]))
                 )))
             ))
+        )
+    }
+
+    #[test]
+    fn wtf() {
+        let input = r#"false ? true"#;
+        assert_eq!(
+            expression.parse_peek(input),
+            Ok(("? true", Expression::Boolean(false)))
         )
     }
 }
