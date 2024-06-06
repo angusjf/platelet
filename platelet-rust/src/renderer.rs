@@ -363,7 +363,7 @@ where
                         return Err(RenderError {
                             kind: RenderErrorKind::UndefinedSlot(src.clone()),
                             filename: filename.to_owned(),
-                        })
+                        });
                     }
                 }
             }
