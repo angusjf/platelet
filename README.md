@@ -6,7 +6,7 @@ This repo contains a Rust library for rendering `platelet` templates.
 
 ## Why platelet?
 
-Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML (simlar to Vue.js).
+Unlike `moustache`, `handlebars`, `Jinja`, `Liquid` and other templating languages, `platelet`'s syntax is part of HTML (similar to Vue.js).
 
 This has a few upsides:
 
@@ -133,7 +133,7 @@ HTML Attributes starting with a `pl-` are special. They are inspired by Vue's di
 | `pl-slot`    |
 | `pl-is`      |
 
-### Conditinals: `pl-if`, `pl-else-if`, `pl-else`
+### Conditionals: `pl-if`, `pl-else-if`, `pl-else`
 
 `pl-if` will only render this element if the expression is truthy
 
@@ -188,7 +188,7 @@ Given a path as a string, renders the template at the path and replaces the elem
 </slot>
 ```
 
-The attributes set on the element (regular attributes or rendered `^` atributues) are used as the context for rendering the template.
+The attributes set on the element (regular attributes or rendered `^` attributes) are used as the context for rendering the template.
 
 ### `pl-slot`
 
@@ -288,7 +288,7 @@ If the variable is not defined then an error is returned.
 
 ## Expressions
 
-All valid JSON values are valid `platelet` expressions. On top of this, single-quoted strings `'like this'` are allowed for convinience when working with HTML.
+All valid JSON values are valid `platelet` expressions. On top of this, single-quoted strings `'like this'` are allowed for convenience when working with HTML.
 
 ### Operators
 
