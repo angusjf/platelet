@@ -2,7 +2,7 @@
 name = "platelet"
 description = "HTML-first templating language"
 license = "MIT"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 documentation = "https://docs.rs/platelet/"
 homepage = "https://angusjf.com/platelet/"
