@@ -252,3 +252,122 @@ fn pl_for_lots_of_children() {
         <div>4</div>(said)</ol>"
     );
 }
+
+#[test]
+#[ignore]
+fn nested_slots() {
+    let vars = json!({});
+
+    let result = render_with_custom_filesystem(
+        &vars,
+        &"index.html".into(),
+        &MockMultiFile {
+            data: HashMap::from([
+                (
+                    "index.html".into(),
+                    "<!DOCTYPE html>
+                    <html lang='en'>
+                        <template pl-src='head.html'></template>
+
+                        <body>
+                            <template pl-src='navbar.html'>
+                              <template pl-slot='dropdown'></template>
+                              <template pl-slot='button'></template>
+                            </template>
+
+                            <div class='section'>
+                                <div class='title'>Login</div>
+                                <form action='/login' method='post'>
+                                    {template 'input' .EmailInput}}
+                                    {template 'input' .PasswordInput}}
+                                    {template 'button' .SubmitButton}}
+                                </form>
+                            </div>
+                        </body>
+
+                    </html>"
+                        .to_owned(),
+                ),
+                ("head.html".into(), "<head></head>".to_owned()),
+                (
+                    "navbar.html".into(),
+                    "<div class='navbar'>
+                        <a class='logo' href='/'>My App</a>
+
+                        <div class='actions'>
+                            <slot pl-slot='dropdown'></slot>
+                            <slot pl-slot='button'></slot>
+                        </div>
+
+                    </div>
+                    "
+                    .to_owned(),
+                ),
+                (
+                    "button.html".into(),
+                    "<button class='button-container'>
+                    <a
+                        class='button {{if .IsPrimary}}primary{{end}}'
+                        {if eq .IsSubmit true}}
+                            type='submit'
+                        {else}}
+                            href='{{.Link}}'
+                        {end}}>
+                        {.Text}
+                    </a>
+                </button> "
+                        .to_owned(),
+                ),
+            ]),
+        },
+    );
+    assert_eq!(result.unwrap(), "");
+}
+
+#[test]
+fn nested_slots_min() {
+    let vars = json!({});
+
+    let result = render_with_custom_filesystem(
+        &vars,
+        &"index.html".into(),
+        &MockMultiFile {
+            data: HashMap::from([
+                (
+                    "index.html".into(),
+                    "<div pl-src='navbar.html'>
+                       <template pl-slot='dropdown'>
+                         x
+                       </template>
+                       <template pl-slot='button'>
+                         y
+                       </template>
+                     </div>"
+                        .to_owned(),
+                ),
+                (
+                    "navbar.html".into(),
+                    "<span class='navbar'>
+                       <slot pl-slot='dropdown'></slot>
+                       <slot pl-slot='button'></slot>
+                     </span>"
+                        .to_owned(),
+                ),
+            ]),
+        },
+    );
+    assert_eq!(
+        result.unwrap(),
+        format!(
+            "{}{}{}{}{}{}{}{}",
+            "<span class='navbar'>\n",
+            "                       \n",
+            "                         \n",
+            "x                       \n",
+            "                       \n",
+            "                         y\n",
+            "                       \n",
+            "                     </span>"
+        )
+    );
+}
