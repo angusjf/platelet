@@ -1,3 +1,5 @@
+//! Platelet is a templating language for building HTML
+
 use core::fmt;
 use std::{
     collections::{HashMap, HashSet},
@@ -22,8 +24,8 @@ mod text_node;
 mod types;
 
 pub fn render_with_custom_filesystem<F, FilesystemError>(
-    vars: &Value,
     filename: &String,
+    vars: &Value,
     filesystem: &F,
 ) -> Result<String, RenderError<FilesystemError>>
 where
@@ -53,8 +55,12 @@ impl Filesystem<()> for SingleFile {
     }
 }
 
-pub fn render(vars: &Value, html: String) -> Result<String, RenderError<()>> {
-    render_with_custom_filesystem(&vars, &"input".to_owned(), &SingleFile { data: html })
+/// Render a template to a string, given some variables
+///
+/// * `html`: The platelet source
+/// * `vars`: The context
+pub fn render(html: String, vars: &Value) -> Result<String, RenderError<()>> {
+    render_with_custom_filesystem(&"input".to_owned(), &vars, &SingleFile { data: html })
 }
 
 struct PathFilesystem {}
@@ -97,13 +103,15 @@ impl Filesystem<PathFilesystemError> for PathFilesystem {
     }
 }
 
+/// Render a template at a given file path to a string
+/// If the template references another, it is referenced relative to the template's parent directory
 pub fn render_file(
-    vars: &Value,
     filename: &Path,
+    vars: &Value,
 ) -> Result<String, RenderError<PathFilesystemError>> {
     render_with_custom_filesystem(
-        &vars,
         &filename.to_str().unwrap().to_owned(),
+        &vars,
         &PathFilesystem {},
     )
 }
@@ -118,8 +126,8 @@ mod render_test {
     #[test]
     fn happy_path() {
         let result = render(
-            &json!({ "hello": "hi" }),
             "<h1>{{ hello }} world".to_owned(),
+            &json!({ "hello": "hi" }),
         );
         assert_eq!(result, Ok("<h1>hi world</h1>".to_owned()));
     }
@@ -127,8 +135,8 @@ mod render_test {
     #[test]
     fn for_loop_parser_error() {
         let result = render(
-            &json!({ "hello": "hi" }),
             "<h1 pl-for='x, in [1,2,3]'>{{ hello }} world {{ x }}".to_owned(),
+            &json!({ "hello": "hi" }),
         );
         assert_eq!(
             result.unwrap_err().to_string(),
@@ -144,8 +152,8 @@ in input"#
     #[test]
     fn for_loop_exec_error() {
         let result = render(
-            &json!({ "hello": "hi" }),
             "<h1 pl-for='x in 1'>{{ hello }} world {{ x }}".to_owned(),
+            &json!({ "hello": "hi" }),
         );
         assert_eq!(
             result.unwrap_err().to_string(),

@@ -7,7 +7,7 @@ use serde_json::json;
 fn pl_src() {
     let vars = json!({"examples": ["this", "that"]});
 
-    let result = render_file(&vars, Path::new("./tests/example_index.html"));
+    let result = render_file(Path::new("./tests/example_index.html"), &vars);
 
     assert_eq!(
         result.unwrap(),

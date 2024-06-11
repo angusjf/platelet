@@ -21,8 +21,8 @@ fn pl_src() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -41,8 +41,8 @@ fn pl_src_with_slot() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-            &vars,
             &"index.html".into(),
+            &vars,
             &MockMultiFile {
                 data: HashMap::from([
                     (
@@ -64,8 +64,8 @@ fn pl_src_with_named_slots() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -96,8 +96,8 @@ fn pl_src_with_cotext() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -116,8 +116,8 @@ fn pl_for_and_pl_src() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -154,8 +154,8 @@ fn example() {
     });
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -230,8 +230,8 @@ fn pl_for_lots_of_children() {
     let vars = Map::new().into();
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (

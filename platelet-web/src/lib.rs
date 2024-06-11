@@ -36,6 +36,6 @@ pub fn render_files(filename: String, files: String, context: String) -> Result<
 
     let filesystem = FileMap { files: filesystem };
 
-    platelet::render_with_custom_filesystem(&context, &filename, &filesystem)
+    platelet::render_with_custom_filesystem(&filename, &context, &filesystem)
         .map_err(|e| e.to_string())
 }

@@ -13,5 +13,5 @@ fn main() {
     io::stdin().read_to_string(&mut stdin).unwrap();
     let stdin: Value = serde_json::from_str(&stdin).unwrap();
 
-    println!("{}", render_file(&stdin, &Path::new(&filename)).unwrap());
+    println!("{}", render_file(&Path::new(&filename), &stdin).unwrap());
 }
