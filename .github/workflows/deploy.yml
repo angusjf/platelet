@@ -30,7 +30,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: rustup update stable && rustup default stable
         working-directory: platelet-web
-      - run: cargo build --verbose
+      - run: cargo test
         working-directory: platelet-web
       - run: command -v wasm-pack || cargo install wasm-pack
         working-directory: platelet-web
