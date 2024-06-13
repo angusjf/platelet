@@ -15,9 +15,15 @@ use crate::text_node::render_text_node;
 use crate::types::Type;
 use crate::{for_loop_runner, text_node};
 
+/// Represents a filesystem you can traverse when you visit a `pl-src` tag.
 pub trait Filesystem<E> {
+    /// Move from the current filename to another, given a path
+    /// For example, the standard filesystem moves from `"/project/templates/index.html"` to
+    /// `"./component.html"` you arrive at `"/project/templates/component.html"`
     fn move_to(&self, current: &String, path: &String) -> Result<String, E>;
-    fn read(&self, file: &String) -> Result<String, E>;
+
+    /// Read a file at a given path
+    fn read(&self, filename: &String) -> Result<String, E>;
 }
 
 enum PostRenderOperation {

@@ -23,6 +23,13 @@ pub mod renderer;
 mod text_node;
 mod types;
 
+/// Advanced usage if you're not rendering a template string or template file file in a directory of templates.
+///
+/// Can be used if your templates are stored in a complex way is not traversed using typical unix `../` style paths.
+///
+/// * `filename`: Path to a platelet template file
+/// * `context`: Variables to render the template with
+/// * `filesystem`: A struct implementing [`Filesystem`](trait@Filesystem)
 pub fn render_with_custom_filesystem<F, FilesystemError>(
     filename: &String,
     vars: &Value,
@@ -55,12 +62,12 @@ impl Filesystem<()> for SingleFile {
     }
 }
 
-/// Render a template to a string, given some variables
+/// Render a template string to a string, given some variables
 ///
-/// * `html`: The platelet source
-/// * `vars`: The context
-pub fn render(html: String, vars: &Value) -> Result<String, RenderError<()>> {
-    render_with_custom_filesystem(&"input".to_owned(), &vars, &SingleFile { data: html })
+/// * `source`: Platelet template string
+/// * `context`: Variables to render the template with
+pub fn render(source: String, context: &Value) -> Result<String, RenderError<()>> {
+    render_with_custom_filesystem(&"input".to_owned(), &context, &SingleFile { data: source })
 }
 
 struct PathFilesystem {}
@@ -105,13 +112,16 @@ impl Filesystem<PathFilesystemError> for PathFilesystem {
 
 /// Render a template at a given file path to a string
 /// If the template references another, it is referenced relative to the template's parent directory
+///
+/// * `filename`: Path to a platelet template file
+/// * `context`: Variables to render the template with
 pub fn render_file(
     filename: &Path,
-    vars: &Value,
+    context: &Value,
 ) -> Result<String, RenderError<PathFilesystemError>> {
     render_with_custom_filesystem(
         &filename.to_str().unwrap().to_owned(),
-        &vars,
+        &context,
         &PathFilesystem {},
     )
 }
