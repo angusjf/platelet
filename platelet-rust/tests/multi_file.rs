@@ -259,8 +259,8 @@ fn nested_slots() {
     let vars = json!({});
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
@@ -329,8 +329,8 @@ fn nested_slots_min() {
     let vars = json!({});
 
     let result = render_with_custom_filesystem(
-        &vars,
         &"index.html".into(),
+        &vars,
         &MockMultiFile {
             data: HashMap::from([
                 (
