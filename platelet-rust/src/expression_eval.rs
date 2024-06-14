@@ -217,7 +217,7 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
         }
         Expression::Identifier(id) => match vars {
             Value::Object(o) => {
-                let v = o.get(id).ok_or_else(|| EvalError::Undefined(id.clone()))?;
+                let v = o.get(id).unwrap_or(&Value::Null);
                 Ok(v.clone())
             }
             _ => Err(EvalError::TypeMismatch),
