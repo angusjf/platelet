@@ -254,7 +254,6 @@ fn pl_for_lots_of_children() {
 }
 
 #[test]
-#[ignore]
 fn nested_slots() {
     let vars = json!({});
 
@@ -267,20 +266,19 @@ fn nested_slots() {
                     "index.html".into(),
                     "<!DOCTYPE html>
                     <html lang='en'>
-                        <template pl-src='head.html'></template>
-
+                        <head><title>hello world</title></head>
                         <body>
-                            <template pl-src='navbar.html'>
+                            <slot pl-src='navbar.html'>
                               <template pl-slot='dropdown'></template>
                               <template pl-slot='button'></template>
-                            </template>
+                            </slot>
 
                             <div class='section'>
                                 <div class='title'>Login</div>
                                 <form action='/login' method='post'>
-                                    {template 'input' .EmailInput}}
-                                    {template 'input' .PasswordInput}}
-                                    {template 'button' .SubmitButton}}
+                                    <slot pl-src='input.html'></slot>
+                                    <slot pl-src='input.html'></slot>
+                                    <slot pl-src='button.html'></slot>
                                 </form>
                             </div>
                         </body>
@@ -288,7 +286,10 @@ fn nested_slots() {
                     </html>"
                         .to_owned(),
                 ),
-                ("head.html".into(), "<head></head>".to_owned()),
+                (
+                    "head.html".into(),
+                    "<head><title>hello world</title></head>".to_owned(),
+                ),
                 (
                     "navbar.html".into(),
                     "<div class='navbar'>
@@ -298,30 +299,32 @@ fn nested_slots() {
                             <slot pl-slot='dropdown'></slot>
                             <slot pl-slot='button'></slot>
                         </div>
-
-                    </div>
-                    "
-                    .to_owned(),
+                    </div>"
+                        .to_owned(),
                 ),
+                ("input.html".into(), r#"<input>"#.to_owned()),
                 (
                     "button.html".into(),
-                    "<button class='button-container'>
-                    <a
-                        class='button {{if .IsPrimary}}primary{{end}}'
-                        {if eq .IsSubmit true}}
-                            type='submit'
-                        {else}}
-                            href='{{.Link}}'
-                        {end}}>
-                        {.Text}
-                    </a>
-                </button> "
+                    r#"<button class='button-container'>
+                        <a
+                            ^class='["button", is_primary && "primary"]'
+                            ^type='is_submit && "submit"'
+                            ^href='link'
+                        >
+                            {{text}}
+                        </a>
+                    </button>"#
                         .to_owned(),
                 ),
             ]),
         },
     );
-    assert_eq!(result.unwrap(), "");
+    assert_eq!(
+        result.unwrap(),
+        r#"<!DOCTYPE html><html lang='en'><head><title>hello world</title></head><body></body></html>\n                        </head><body>\n                            <div class='navbar'>\n                        <a class='logo' href='/'>My App</a>\n\n                        <div class='actions'>\n                            \n                            \n                        </div>\n                    </div>\n\n                            <div class='section'>\n                                <div class='title'>Login</div>\n                                <form action='/login' method='post'>\n                                    {template 'input' .EmailInput}}\n                                    {template 'input' .PasswordInput}}\n                                    {template 'button' .SubmitButton}}\n                                </form>\n                            </div>\n                        \n\n                    </body></html>
+
+        "#
+    );
 }
 
 #[test]
@@ -362,8 +365,8 @@ fn nested_slots_min() {
             "{}{}{}{}{}{}{}{}",
             "<span class='navbar'>\n",
             "                       \n",
-            "                         \n",
-            "x                       \n",
+            "                         x\n",
+            "                       \n",
             "                       \n",
             "                         y\n",
             "                       \n",
