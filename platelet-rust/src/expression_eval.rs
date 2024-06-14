@@ -7,9 +7,9 @@ pub enum EvalError {
     TypeMismatch,
     BadArrayIndexError,
     ArrayOutOfBounds,
-    UndefinedProperty,
+    // UndefinedProperty,
     UndefinedFunction(String),
-    Undefined(String),
+    // Undefined(String),
 }
 
 pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
@@ -25,7 +25,7 @@ pub(crate) fn eval(exp: &Expression, vars: &Value) -> Result<Value, EvalError> {
                     Ok(v.clone())
                 }
                 (Value::Object(o), Value::String(s)) => {
-                    let v = o.get(&s).ok_or(EvalError::UndefinedProperty)?;
+                    let v = o.get(&s).unwrap_or(&Value::Null);
                     Ok(v.clone())
                 }
                 (Value::String(s), Value::Number(n)) => {

@@ -275,7 +275,7 @@ In an HTML text node, `{{variable}}` inserts a (sanitized) string.
 <h1>Welcome back {{user.name}}!</h1>
 ```
 
-If the variable is not defined then an error is returned.
+If the variable is not defined, or a key does not exist on an object, null is returned.
 
 | Data type | Rendered as   |
 | --------- | ------------- |

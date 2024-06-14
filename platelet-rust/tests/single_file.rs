@@ -472,3 +472,21 @@ fn pl_template_and_pl_if() {
 
     assert_eq!(result.unwrap(), "99");
 }
+
+#[test]
+fn undefined_var_null() {
+    let vars = Map::new().into();
+
+    let result = render(r#"A{{ x }}B"#.into(), &vars);
+
+    assert_eq!(result.unwrap(), "AB");
+}
+
+#[test]
+fn undefined_key() {
+    let vars = Map::new().into();
+
+    let result = render(r#"~{{ {}.z }}!"#.into(), &vars);
+
+    assert_eq!(result.unwrap(), "~!");
+}
