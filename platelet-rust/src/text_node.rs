@@ -52,7 +52,7 @@ pub(crate) fn render_text_node<'a>(
 
 fn stringify(v: &Value) -> Result<String, Type> {
     match v {
-        Value::Null => Ok("".to_owned()),
+        Value::Null => Err(Type::Null),
         Value::Bool(b) => Ok(b.to_string()),
         Value::Number(n) => Ok(n.to_string()),
         Value::String(s) => Ok(s.to_owned()),

@@ -1,6 +1,7 @@
 use platelet::{
     render,
     renderer::{RenderError, RenderErrorKind},
+    types,
 };
 use serde_json::{json, Map};
 
@@ -477,7 +478,7 @@ fn pl_template_and_pl_if() {
 fn undefined_var_null() {
     let vars = Map::new().into();
 
-    let result = render(r#"A{{ x }}B"#.into(), &vars);
+    let result = render(r#"A{{ x || "" }}B"#.into(), &vars);
 
     assert_eq!(result.unwrap(), "AB");
 }
@@ -486,7 +487,22 @@ fn undefined_var_null() {
 fn undefined_key() {
     let vars = Map::new().into();
 
-    let result = render(r#"~{{ {}.z }}!"#.into(), &vars);
+    let result = render(r#"~{{ {}.z || "" }}!"#.into(), &vars);
 
     assert_eq!(result.unwrap(), "~!");
+}
+
+#[test]
+fn undefined_render_fail() {
+    let vars = Map::new().into();
+
+    let result = render(r#"~{{ z }}!"#.into(), &vars);
+
+    assert_eq!(
+        result.unwrap_err(),
+        RenderError {
+            kind: RenderErrorKind::TextRender(text_node::RenderError(Type::Null)),
+            filename: "input".to_owned()
+        }
+    );
 }

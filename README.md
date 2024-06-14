@@ -214,8 +214,7 @@ On a `<template>`, `pl-slot` marks the template content as "what fills that slot
 ```html
 <body>
   <nav>
-    <slot pl-slot="sidebar"></slot>
-  </nav>
+    <slot pl-slot="sidebar"></slot> </nav>
   <main>
     <slot pl-slot="content"></slot>
   </main>
@@ -282,7 +281,7 @@ If the variable is not defined, or a key does not exist on an object, null is re
 | Number    | A number      |
 | String    | A string      |
 | Boolean   | true or false |
-| Null      | blank         |
+| Null      | error         |
 | Array     | error         |
 | Object    | error         |
 
